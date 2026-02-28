@@ -1,0 +1,147 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:../data/mico.sqlite"
+}
+
+model User {
+  id        String   @id
+  email     String   @unique
+  name      String?
+  isActive  Int      @default(1) @map("is_active")
+  createdAt DateTime @map("created_at")
+  updatedAt DateTime @map("updated_at")
+
+  magicLinks          MagicLink[]
+  sessions            Session[]
+  items               Item[]
+  userCounter         UserCounter?
+  apiKeys             ApiKey[]
+  emailChangeRequest  EmailChangeRequest?
+  openclawDevices     OpenclawDevice[]
+
+  @@map("users")
+}
+
+model MagicLink {
+  id        String    @id
+  userId    String    @map("user_id")
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  consumedAt DateTime? @map("consumed_at")
+  createdAt DateTime @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("magic_links")
+}
+
+model Session {
+  id        String   @id
+  userId    String   @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("sessions")
+}
+
+model Item {
+  id          String   @id
+  humanId     Int      @map("human_id")
+  userId      String   @map("user_id")
+  title       String
+  description String
+  urgency     String
+  tag         String
+  importance  String
+  deadline    String?
+  status      String
+  createdAt   DateTime @map("created_at")
+  updatedAt   DateTime @map("updated_at")
+  openedAt    DateTime @map("opened_at")
+  createdBy   String   @map("created_by")
+  modifiedBy  String   @map("modified_by")
+
+  user  User  @relation(fields: [userId], references: [id])
+  notes Note[]
+
+  @@unique([userId, humanId])
+  @@index([userId, status, urgency])
+  @@index([userId, deadline])
+  @@index([userId, updatedAt])
+  @@map("items")
+}
+
+model Note {
+  id        String   @id
+  itemId    String   @map("item_id")
+  author    String
+  content   String
+  createdAt DateTime @map("created_at")
+  updatedAt DateTime @map("updated_at")
+
+  item Item @relation(fields: [itemId], references: [id])
+
+  @@index([itemId, createdAt])
+  @@map("notes")
+}
+
+model UserCounter {
+  userId     String @id @map("user_id")
+  nextHumanId Int   @map("next_human_id")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("user_counters")
+}
+
+model ApiKey {
+  id        String   @id
+  userId    String   @map("user_id")
+  keyHash   String   @unique @map("key_hash")
+  name      String?
+  createdAt DateTime @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([keyHash])
+  @@map("api_keys")
+}
+
+model EmailChangeRequest {
+  id        String   @id
+  userId    String   @unique @map("user_id")
+  newEmail  String   @map("new_email")
+  tokenHash String   @unique @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("email_change_requests")
+}
+
+model OpenclawDevice {
+  id         String   @id
+  deviceCode String  @unique @map("device_code")
+  displayCode String @unique @map("display_code")
+  email      String
+  userId     String?  @map("user_id")
+  apiKeyId   String?  @map("api_key_id")
+  apiToken   String?  @map("api_token")
+  status     String
+  expiresAt DateTime @map("expires_at")
+  createdAt  DateTime @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([deviceCode])
+  @@index([displayCode])
+  @@index([expiresAt])
+  @@map("openclaw_devices")
+}

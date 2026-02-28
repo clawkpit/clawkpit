@@ -1,0 +1,47 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mission Control MVP</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header><h1>Mission Control</h1><div id="user"></div></header>
+  <section id="auth">
+    <h2>Magic Link Login</h2>
+    <input id="email" placeholder="email" /><button id="sendLink">Send link</button>
+    <input id="token" placeholder="paste token" /><button id="consumeLink">Login</button>
+    <p id="authMsg"></p>
+  </section>
+
+  <section id="board" class="hidden">
+    <div class="toolbar">
+      <select id="viewMode"><option value="urgency">Urgency</option><option value="tag">Tag</option></select>
+      <select id="statusFilter"><option value="Active">Active</option><option value="Done">Done</option><option value="Dropped">Dropped</option><option value="All">All</option></select>
+      <button id="newItem">New Item</button>
+    </div>
+    <div id="columns"></div>
+  </section>
+
+  <dialog id="itemDialog">
+    <form method="dialog" id="itemForm">
+      <h3 id="dialogTitle">Item</h3>
+      <input id="title" placeholder="title" required />
+      <textarea id="description" placeholder="description"></textarea>
+      <select id="urgency"></select><select id="tag"></select><select id="importance"></select>
+      <input id="deadline" type="datetime-local" />
+      <div>
+        <button id="saveItem" value="default">Save</button>
+        <button id="doneItem" value="default" type="button">Mark Done</button>
+        <button id="dropItem" value="default" type="button">Drop</button>
+      </div>
+      <h4>Notes</h4>
+      <textarea id="newNote" placeholder="add note"></textarea><button id="addNote" type="button">Add Note</button>
+      <ul id="notes"></ul>
+      <button>Close</button>
+    </form>
+  </dialog>
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,340 @@
+import request from "supertest";
+import { beforeEach, describe, expect, it } from "vitest";
+import { createApp } from "../src/app";
+import { migrate, prisma } from "../src/db/prisma";
+import { requestEmailChange } from "../src/services/authService";
+import { clearRateLimits } from "../src/services/rateLimit";
+
+migrate();
+const app = createApp();
+
+async function resetDb() {
+  await prisma.note.deleteMany();
+  await prisma.item.deleteMany();
+  await prisma.userCounter.deleteMany();
+  await prisma.apiKey.deleteMany();
+  await prisma.openclawDevice.deleteMany();
+  await prisma.emailChangeRequest.deleteMany();
+  await prisma.magicLink.deleteMany();
+  await prisma.session.deleteMany();
+  await prisma.user.deleteMany();
+}
+
+async function reset() {
+  await resetDb();
+  clearRateLimits();
+}
+
+async function login(email = "u@example.com") {
+  const agent = request.agent(app);
+  const req = await agent.post("/api/auth/request-link").send({ email });
+  await agent.post("/api/auth/consume-link").send({ token: req.body.token });
+  return agent;
+}
+
+describe("Clawkpit API", () => {
+  beforeEach(async () => {
+    await reset();
+  });
+
+  it("sorts by deadline, then importance, then updatedAt desc", async () => {
+    const agent = await login();
+    await agent.post("/api/v1/items").send({ title: "late no deadline", importance: "Low", deadline: null });
+    await agent.post("/api/v1/items").send({ title: "high soon", importance: "High", deadline: "2026-02-18T10:00:00.000Z" });
+    await agent.post("/api/v1/items").send({ title: "medium soon", importance: "Medium", deadline: "2026-02-18T10:00:00.000Z" });
+    const list = await agent.get("/api/v1/items?status=Active");
+    expect(list.body.items.map((i: any) => i.title)).toEqual(["high soon", "medium soon", "late no deadline"]);
+  });
+
+  it("blocks done for ToThinkAbout without note", async () => {
+    const agent = await login();
+    const created = await agent.post("/api/v1/items").send({ title: "Reflect", tag: "ToThinkAbout" });
+    const done = await agent.post(`/api/v1/items/${created.body.id}/done`).send({ actor: "User" });
+    expect(done.status).toBe(400);
+    expect(done.body.error).toBeDefined();
+    expect(done.body.error.code).toBe("BAD_REQUEST");
+    expect(done.body.error.message).toMatch(/reflection/);
+  });
+
+  it("requires note on drop", async () => {
+    const agent = await login();
+    const created = await agent.post("/api/v1/items").send({ title: "Drop me" });
+    const dropped = await agent.post(`/api/v1/items/${created.body.id}/drop`).send({ actor: "User" });
+    expect(dropped.status).toBe(400);
+    expect(dropped.body.error).toBeDefined();
+    expect(dropped.body.error.code).toBe("BAD_REQUEST");
+    expect(dropped.body.error.message).toBeDefined();
+  });
+
+  it("prevents AI from editing notes", async () => {
+    const agent = await login();
+    const created = await agent.post("/api/v1/items").send({ title: "n" });
+    const note = await agent.post(`/api/v1/items/${created.body.id}/notes`).send({ author: "AI", content: "x" });
+    const edit = await agent.patch(`/api/v1/notes/${note.body.noteId}`).send({ actor: "AI", content: "y" });
+    expect(edit.status).toBe(403);
+    expect(edit.body.error).toBeDefined();
+    expect(edit.body.error.code).toBe("FORBIDDEN");
+    expect(edit.body.error.message).toMatch(/AI cannot edit/);
+  });
+
+  it("supports logout and invalidates the current session", async () => {
+    const agent = await login();
+    const meBefore = await agent.get("/api/me");
+    expect(meBefore.status).toBe(200);
+
+    const logout = await agent.post("/api/auth/logout");
+    expect(logout.status).toBe(200);
+
+    const meAfter = await agent.get("/api/me");
+    expect(meAfter.status).toBe(401);
+    expect(meAfter.body.error).toBeDefined();
+    expect(meAfter.body.error.code).toBe("UNAUTHORIZED");
+    expect(meAfter.body.error.message).toBeDefined();
+  });
+
+  it("rate limits magic-link requests", async () => {
+    for (let i = 0; i < 5; i++) {
+      const ok = await request(app).post("/api/auth/request-link").send({ email: "limit@example.com" });
+      expect(ok.status).toBe(200);
+    }
+
+    const blocked = await request(app).post("/api/auth/request-link").send({ email: "limit@example.com" });
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers["retry-after"]).toBeTruthy();
+    expect(blocked.body.error).toBeDefined();
+    expect(blocked.body.error.code).toBe("RATE_LIMITED");
+    expect(blocked.body.error.message).toBeDefined();
+  });
+
+  it("returns error envelope with code and message for failures", async () => {
+    const res = await request(app).get("/api/me");
+    expect(res.status).toBe(401);
+    expect(res.body).toHaveProperty("error");
+    expect(res.body.error).toHaveProperty("code", "UNAUTHORIZED");
+    expect(res.body.error).toHaveProperty("message");
+    expect(typeof res.body.error.message).toBe("string");
+    expect(res.body.error).toHaveProperty("details");
+    expect(typeof res.body.error.details).toBe("object");
+  });
+
+  describe("cross-user scoping", () => {
+    it("user B cannot read or modify user A's items (session)", async () => {
+      const agentA = await login("user-a@example.com");
+      const agentB = await login("user-b@example.com");
+
+      const created = await agentA.post("/api/v1/items").send({ title: "A's item" });
+      const itemId = created.body.id;
+      const noteRes = await agentA.post(`/api/v1/items/${itemId}/notes`).send({ author: "User", content: "A's note" });
+      const noteId = noteRes.body.noteId;
+
+      const getItem = await agentB.get(`/api/v1/items/${itemId}`);
+      expect(getItem.status).toBe(404);
+      expect(getItem.body.error?.code).toBe("NOT_FOUND");
+
+      const patchItem = await agentB.patch(`/api/v1/items/${itemId}`).send({ title: "Hacked" });
+      expect(patchItem.status).toBe(404);
+      expect(patchItem.body.error?.code).toBe("NOT_FOUND");
+
+      const getNotes = await agentB.get(`/api/v1/items/${itemId}/notes`);
+      expect(getNotes.status).toBe(404);
+      expect(getNotes.body.error?.code).toBe("NOT_FOUND");
+
+      const addNote = await agentB.post(`/api/v1/items/${itemId}/notes`).send({ author: "User", content: "B's note" });
+      expect(addNote.status).toBe(404);
+      expect(addNote.body.error?.code).toBe("NOT_FOUND");
+
+      const patchNote = await agentB.patch(`/api/v1/notes/${noteId}`).send({ actor: "User", content: "Hacked note" });
+      expect(patchNote.status).toBe(404);
+      expect(patchNote.body.error?.code).toBe("NOT_FOUND");
+
+      const done = await agentB.post(`/api/v1/items/${itemId}/done`).send({ actor: "User" });
+      expect(done.status).toBe(404);
+      expect(done.body.error?.code).toBe("NOT_FOUND");
+
+      const drop = await agentB.post(`/api/v1/items/${itemId}/drop`).send({ actor: "User", note: "dropping" });
+      expect(drop.status).toBe(404);
+      expect(drop.body.error?.code).toBe("NOT_FOUND");
+    });
+
+    it("user B cannot read user A's item when using API key", async () => {
+      const agentA = await login("user-a@example.com");
+      const agentB = await login("user-b@example.com");
+
+      const created = await agentA.post("/api/v1/items").send({ title: "A's item" });
+      const itemId = created.body.id;
+
+      const keyRes = await agentB.post("/api/me/keys").send({});
+      const apiKey = keyRes.body.key;
+      expect(keyRes.status).toBe(201);
+      expect(apiKey).toBeTruthy();
+
+      const getItem = await request(app)
+        .get(`/api/v1/items/${itemId}`)
+        .set("Authorization", `Bearer ${apiKey}`);
+      expect(getItem.status).toBe(404);
+      expect(getItem.body.error?.code).toBe("NOT_FOUND");
+
+      const patchItem = await request(app)
+        .patch(`/api/v1/items/${itemId}`)
+        .set("Authorization", `Bearer ${apiKey}`)
+        .send({ title: "Hacked" });
+      expect(patchItem.status).toBe(404);
+      expect(patchItem.body.error?.code).toBe("NOT_FOUND");
+    });
+
+    it("user B does not see user A's items in list", async () => {
+      const agentA = await login("user-a@example.com");
+      const agentB = await login("user-b@example.com");
+
+      await agentA.post("/api/v1/items").send({ title: "A's item" });
+      const listB = await agentB.get("/api/v1/items?status=Active");
+      expect(listB.status).toBe(200);
+      expect(listB.body.items).toHaveLength(0);
+    });
+  });
+
+  describe("list items pagination and filters", () => {
+    it("paginates by page and pageSize", async () => {
+      const agent = await login();
+      await agent.post("/api/v1/items").send({ title: "1" });
+      await agent.post("/api/v1/items").send({ title: "2" });
+      await agent.post("/api/v1/items").send({ title: "3" });
+      await agent.post("/api/v1/items").send({ title: "4" });
+      await agent.post("/api/v1/items").send({ title: "5" });
+
+      const page1 = await agent.get("/api/v1/items?status=Active&page=1&pageSize=2");
+      expect(page1.status).toBe(200);
+      expect(page1.body.items).toHaveLength(2);
+      expect(page1.body.total).toBe(5);
+      expect(page1.body.page).toBe(1);
+      expect(page1.body.pageSize).toBe(2);
+
+      const page2 = await agent.get("/api/v1/items?status=Active&page=2&pageSize=2");
+      expect(page2.status).toBe(200);
+      expect(page2.body.items).toHaveLength(2);
+      expect(page2.body.total).toBe(5);
+
+      const page3 = await agent.get("/api/v1/items?status=Active&page=3&pageSize=2");
+      expect(page3.status).toBe(200);
+      expect(page3.body.items).toHaveLength(1);
+      expect(page3.body.total).toBe(5);
+
+      const allTitles = [
+        ...page1.body.items,
+        ...page2.body.items,
+        ...page3.body.items,
+      ].map((i: any) => i.title).sort();
+      expect(allTitles).toEqual(["1", "2", "3", "4", "5"]);
+    });
+
+    it("filters by status Done and Dropped", async () => {
+      const agent = await login();
+      const a = await agent.post("/api/v1/items").send({ title: "Active one" });
+      const b = await agent.post("/api/v1/items").send({ title: "To done", tag: "ToDo" });
+      const c = await agent.post("/api/v1/items").send({ title: "To drop" });
+
+      await agent.post(`/api/v1/items/${b.body.id}/done`).send({ actor: "User" });
+      await agent.post(`/api/v1/items/${c.body.id}/notes`).send({ author: "User", content: "why" });
+      await agent.post(`/api/v1/items/${c.body.id}/drop`).send({ actor: "User", note: "dropping" });
+
+      const active = await agent.get("/api/v1/items?status=Active");
+      expect(active.status).toBe(200);
+      expect(active.body.items.map((i: any) => i.title)).toEqual(["Active one"]);
+
+      const done = await agent.get("/api/v1/items?status=Done");
+      expect(done.status).toBe(200);
+      expect(done.body.items.map((i: any) => i.title)).toEqual(["To done"]);
+
+      const dropped = await agent.get("/api/v1/items?status=Dropped");
+      expect(dropped.status).toBe(200);
+      expect(dropped.body.items.map((i: any) => i.title)).toEqual(["To drop"]);
+
+      const all = await agent.get("/api/v1/items?status=All");
+      expect(all.status).toBe(200);
+      expect(all.body.items).toHaveLength(3);
+    });
+
+    it("filters by deadlineBefore and deadlineAfter", async () => {
+      const agent = await login();
+      await agent.post("/api/v1/items").send({ title: "Early", deadline: "2026-02-01T12:00:00.000Z" });
+      await agent.post("/api/v1/items").send({ title: "Mid", deadline: "2026-02-15T12:00:00.000Z" });
+      await agent.post("/api/v1/items").send({ title: "Late", deadline: "2026-02-28T12:00:00.000Z" });
+
+      const before = await agent.get("/api/v1/items?status=Active&deadlineBefore=2026-02-20T00:00:00.000Z");
+      expect(before.status).toBe(200);
+      expect(before.body.items.map((i: any) => i.title).sort()).toEqual(["Early", "Mid"]);
+
+      const after = await agent.get("/api/v1/items?status=Active&deadlineAfter=2026-02-10T00:00:00.000Z");
+      expect(after.status).toBe(200);
+      expect(after.body.items.map((i: any) => i.title).sort()).toEqual(["Late", "Mid"]);
+
+      const range = await agent.get("/api/v1/items?status=Active&deadlineAfter=2026-02-10T00:00:00.000Z&deadlineBefore=2026-02-20T00:00:00.000Z");
+      expect(range.status).toBe(200);
+      expect(range.body.items.map((i: any) => i.title)).toEqual(["Mid"]);
+    });
+
+    it("filters by createdBy", async () => {
+      const agent = await login();
+      await agent.post("/api/v1/items").send({ title: "By user", createdBy: "User" });
+      await agent.post("/api/v1/items").send({ title: "By AI", createdBy: "AI" });
+
+      const byUser = await agent.get("/api/v1/items?status=Active&createdBy=User");
+      expect(byUser.status).toBe(200);
+      expect(byUser.body.items.map((i: any) => i.title)).toEqual(["By user"]);
+
+      const byAI = await agent.get("/api/v1/items?status=Active&createdBy=AI");
+      expect(byAI.status).toBe(200);
+      expect(byAI.body.items.map((i: any) => i.title)).toEqual(["By AI"]);
+    });
+
+    it("filters by modifiedBy", async () => {
+      const agent = await login();
+      await agent.post("/api/v1/items").send({ title: "Only user" });
+      await agent.post("/api/v1/items").send({ title: "Edited by AI" });
+      const edited = await agent.post("/api/v1/items").send({ title: "Will be AI-edited" });
+      await agent.patch(`/api/v1/items/${edited.body.id}`).send({ title: "AI edited", modifiedBy: "AI" });
+
+      const byUser = await agent.get("/api/v1/items?status=Active&modifiedBy=User");
+      expect(byUser.status).toBe(200);
+      expect(byUser.body.items.map((i: any) => i.title).sort()).toEqual(["Edited by AI", "Only user"]);
+
+      const byAI = await agent.get("/api/v1/items?status=Active&modifiedBy=AI");
+      expect(byAI.status).toBe(200);
+      expect(byAI.body.items.map((i: any) => i.title)).toEqual(["AI edited"]);
+    });
+  });
+
+  describe("email change verification", () => {
+    it("confirm-email-change rejects invalid token", async () => {
+      const res = await request(app).post("/api/auth/confirm-email-change").send({ token: "invalid" });
+      expect(res.status).toBe(400);
+      expect(res.body.error?.code).toBe("BAD_REQUEST");
+    });
+
+    it("confirm-email-change updates email and returns session cookie", async () => {
+      const agent = await login("change@example.com");
+      const me = await agent.get("/api/me");
+      expect(me.status).toBe(200);
+      const userId = me.body.user.id;
+      const currentEmail = me.body.user.email;
+
+      const result = await requestEmailChange(userId, currentEmail, "new@example.com");
+      expect(result).not.toBeNull();
+      expect(result!.token).toBeTruthy();
+
+      const confirmRes = await request(app)
+        .post("/api/auth/confirm-email-change")
+        .send({ token: result!.token });
+      expect(confirmRes.status).toBe(200);
+      expect(confirmRes.body.user.email).toBe("new@example.com");
+
+      const cookie = confirmRes.headers["set-cookie"];
+      expect(cookie).toBeTruthy();
+      const agent2 = request.agent(app);
+      await agent2.set("Cookie", Array.isArray(cookie) ? cookie : [cookie]);
+      const meAfter = await agent2.get("/api/me");
+      expect(meAfter.status).toBe(200);
+      expect(meAfter.body.user.email).toBe("new@example.com");
+    });
+  });
+});
