@@ -7,7 +7,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { getFormContent, submitFormResponse } from "@/api/client";
+import { getFormContent, getFormResponses, submitFormResponse } from "@/api/client";
 import { parseFormMarkdown, validateFormData, type FormSchema, type ValidationError } from "@/lib/formParser";
 import { FormRenderer } from "@/components/FormRenderer";
 import { CheckIcon } from "lucide-react";
@@ -35,6 +35,21 @@ export function FormModal({
   const [submitting, setSubmitting] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
+  function toFormValues(input: Record<string, unknown> | undefined): Record<string, string | string[]> {
+    const values: Record<string, string | string[]> = {};
+    if (!input) return values;
+    Object.entries(input).forEach(([k, v]) => {
+      if (typeof v === "string") {
+        values[k] = v;
+      } else if (Array.isArray(v) && v.every((x) => typeof x === "string")) {
+        values[k] = v as string[];
+      } else if (typeof v === "number" || typeof v === "boolean") {
+        values[k] = String(v);
+      }
+    });
+    return values;
+  }
+
   useEffect(() => {
     if (!open || !contentId) {
       setSchema(null);
@@ -46,11 +61,12 @@ export function FormModal({
     }
     setLoading(true);
     setFetchError(null);
-    getFormContent(contentId)
-      .then((data) => {
+    Promise.all([getFormContent(contentId), getFormResponses(contentId)])
+      .then(([data, responses]) => {
         setTitle(data.title ?? "Form");
         setSchema(parseFormMarkdown(data.formMarkdown));
-        setValues({});
+        const latest = responses[0]?.response as Record<string, unknown> | undefined;
+        setValues(toFormValues(latest));
       })
       .catch((e) => setFetchError(e instanceof Error ? e.message : "Failed to load form"))
       .finally(() => setLoading(false));

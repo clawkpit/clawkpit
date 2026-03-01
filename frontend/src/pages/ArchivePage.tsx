@@ -1,9 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import type { Item, ItemNote } from "@/types/items";
+import type { ItemContentType } from "@/types/items";
 import { listItems, listNotes, addNote, updateNote, markDone, dropItem, updateItem } from "@/api/client";
 import { BoardCard } from "@/components/board/Card";
 import { DetailPanel } from "@/components/DetailPanel";
+import { FormModal } from "@/components/FormModal";
+import { MarkdownModal } from "@/components/MarkdownModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +24,7 @@ export function ArchivePage() {
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [panelNotes, setPanelNotes] = useState<ItemNote[]>([]);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [contentModal, setContentModal] = useState<{ type: ItemContentType; contentId: string; itemId: string } | null>(null);
 
   const loadItems = async () => {
     setLoading(true);
@@ -118,6 +122,15 @@ export function ArchivePage() {
       const notes = await listNotes(selectedItem.id);
       setPanelNotes(notes);
     }
+  };
+
+  const handleContentAction = (type: ItemContentType, item: Item) => {
+    if (item.contentId) setContentModal({ type, contentId: item.contentId, itemId: item.id });
+  };
+
+  const handleContentModalClose = () => {
+    setContentModal(null);
+    loadItems();
   };
 
   return (
@@ -249,6 +262,21 @@ export function ArchivePage() {
         onDrop={handleDrop}
         onAddNote={handleAddNote}
         onEditNote={handleEditNote}
+        onContentAction={handleContentAction}
+      />
+      <MarkdownModal
+        open={contentModal?.type === "markdown"}
+        onOpenChange={(open) => !open && setContentModal(null)}
+        contentId={contentModal?.type === "markdown" ? contentModal.contentId : null}
+        itemId={contentModal?.type === "markdown" ? contentModal.itemId ?? null : null}
+        onMarkRead={handleContentModalClose}
+      />
+      <FormModal
+        open={contentModal?.type === "form"}
+        onOpenChange={(open) => !open && setContentModal(null)}
+        contentId={contentModal?.type === "form" ? contentModal.contentId : null}
+        itemId={contentModal?.type === "form" ? contentModal.itemId ?? null : null}
+        onSubmit={handleContentModalClose}
       />
     </div>
   );

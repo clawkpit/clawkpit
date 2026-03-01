@@ -339,6 +339,20 @@ export async function getFormContent(id: string): Promise<FormContent> {
   return apiFetch<FormContent>(`/forms/${id}`);
 }
 
+export interface FormResponseRecord {
+  id: string;
+  userId: string;
+  contentId: string;
+  itemId: string | null;
+  response: Record<string, unknown>;
+  createdAt: string;
+}
+
+export async function getFormResponses(id: string): Promise<FormResponseRecord[]> {
+  const data = await apiFetch<{ responses?: FormResponseRecord[] }>(`/agent/forms/${id}/responses`);
+  return Array.isArray(data.responses) ? data.responses : [];
+}
+
 export async function submitFormResponse(
   formId: string,
   payload: { itemId?: string; response: Record<string, unknown> }
