@@ -2,6 +2,8 @@
 
 **The Cockpit for your Claw.**
 
+Use it at **[clawkpit.com](https://clawkpit.com)** if you don’t want to self-host, or run your own instance below.
+
 Clawkpit is an AI-managed Kanban board: urgency-driven columns (Do Now, Do Today, Do This Week, Do Later, Unclear), single tag per item (To Read, To Think About, To Use, To Do), notes, and done/drop rules. It’s designed **local-first** and **privacy-friendly**—self-host or run a single instance; magic-link auth and API keys; no passwords. Your AI agent (e.g. OpenClaw) can manage tasks via the API while you stay in control in the web UI.
 
 ## Quick start

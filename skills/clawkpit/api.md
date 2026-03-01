@@ -8,7 +8,7 @@ Base URL: use `CLAWKPIT_BASE_URL` from environment or config (e.g. `https://your
 - Token is obtained via the **device flow** (`/clawkpit connect`) and stored by the skill, or from env `CLAWKPIT_API_TOKEN` or OpenClaw config `skills.entries.clawkpit.env.CLAWKPIT_API_TOKEN`.
 - Never log or echo the token.
 
-**Actor inference:** When using an API key, if you omit `createdBy`, `modifiedBy`, `author`, or `actor` in a request, the server defaults them to `"AI"`. When using a session (browser), they default to `"User"`. You can still send the field explicitly to override.
+**Agent actor rule:** Agents should act as `AI`, not `User`. When using an API key, if you omit `createdBy`, `modifiedBy`, `author`, or `actor`, the server defaults them to `"AI"`. Agents may send `"AI"` explicitly, but should not send `"User"`.
 
 ## Device flow (connect without pasting secrets)
 
@@ -60,14 +60,16 @@ Enums: **urgency** DoNow | DoToday | DoThisWeek | DoLater | Unclear; **tag** ToR
 
 Push markdown or form content to a user's board. Uses upsert semantics: if `externalId` matches an existing record (or `contentHash` matches when no `externalId`), the content is updated and the existing item is returned.
 
+Use `externalId` for recurring syncs from external systems. It should be a deterministic, source-based identifier for the logical record, not a hash of the current body and not a mutable title. Good patterns include `gmail:thread:<id>`, `calendar:event:<id>`, `notion:page:<id>`, and `github:issue:<repo>:<number>`. Reuse the same `externalId` whenever that same source record is updated. Omit it for one-off pushes where content-hash deduplication is acceptable.
+
 | Method | Path | Body | Response |
 |--------|------|------|----------|
 | POST | `/api/agent/markdown` | `{ "title?", "markdown" (required, max 100k), "externalId?" }` | 201 + `{ "markdownId", "itemId" }`. Creates a ToRead item linked to the content. |
 | GET | `/api/markdown/:id` | — | `{ "id", "title", "markdown", "createdAt" }` or 404. Only the owning user can access. |
 | POST | `/api/agent/form` | `{ "title?", "formMarkdown" (required, max 100k), "externalId?" }` | 201 + `{ "formId", "itemId" }`. Creates a ToDo item linked to the form. |
 | GET | `/api/forms/:id` | — | `{ "id", "title", "formMarkdown", "createdAt" }` or 404. Only the owning user can access. |
-| POST | `/api/forms/:id/submit` | `{ "itemId?", "response": { ... } }` | 201 + `{ "id" }`. Saves the response and marks the linked item as Done. |
-| GET | `/api/agent/forms/:id/responses` | — | `{ "responses": [ ... ] }`. Only the owning user can access. |
+| POST | `/api/forms/:id/submit` | `{ "itemId?", "response": { ... } }` | 201 + `{ "id" }`. Saves the response and marks the linked item as Done. Intended for human-completed forms, not agent-authored submissions. |
+| GET | `/api/agent/forms/:id/responses` | — | `{ "responses": [ { "id", "userId", "contentId", "itemId", "response", "createdAt" } ] }`. Only the owning user can access. |
 
 ## Real-time updates (WebSocket)
 
@@ -75,7 +77,7 @@ Browser clients can connect to `ws(s)://<host>/api/ws` (session cookie required)
 
 ## Item shape
 
-`id`, `humanId`, `userId`, `title`, `description`, `urgency`, `tag`, `importance`, `deadline` (ISO or null), `status`, `createdAt`, `updatedAt`, `openedAt`, `createdBy`, `modifiedBy`, `hasAIChanges` (boolean), `contentId?`, `contentType?`.
+`id`, `humanId`, `userId`, `title`, `description`, `urgency`, `tag`, `importance`, `deadline` (ISO or null), `status`, `createdAt`, `updatedAt`, `openedAt`, `createdBy`, `modifiedBy`, `hasAIChanges` (boolean), `contentId?` (linked agent content UUID or null), `contentType?` ("markdown" \| "form" \| null).
 
 ## Note shape
 
