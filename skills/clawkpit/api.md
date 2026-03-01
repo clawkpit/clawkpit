@@ -36,7 +36,7 @@ Enums: **urgency** DoNow | DoToday | DoThisWeek | DoLater | Unclear; **tag** ToR
 | POST | `/api/v1/items` | `title` (required), `description?`, `urgency?`, `tag?`, `importance?`, `deadline?` (ISO or null), `status?`, `createdBy?` | 201 + full item. |
 | GET | `/api/v1/items` | Query: `status` (Active\|Done\|Dropped\|All), `tag?`, `importance?`, `urgency?`, `deadlineBefore?`, `deadlineAfter?`, `createdBy?`, `modifiedBy?`, `page`, `pageSize` | `{ "items", "total", "page", "pageSize" }`. |
 | GET | `/api/v1/items/:id` | — | Single item or 404. |
-| PATCH | `/api/v1/items/:id` | Any of: `title`, `description`, `urgency`, `tag`, `importance`, `deadline`, `status`, `openedAt`, `modifiedBy` | Updated item or 404. |
+| PATCH | `/api/v1/items/:id` | Any of: `title`, `description`, `urgency`, `tag`, `importance`, `deadline`, `status`, `openedAt`, `modifiedBy`, `hasAIChanges` | Updated item or 404. |
 | POST | `/api/v1/items/batch` | Array of `{ "action": "create" \| "update", "id?" (for update), "payload" }` | `{ "results": [ { "ok", "item?" \| "error?" } ] }`. |
 
 ## Notes
@@ -54,9 +54,13 @@ Enums: **urgency** DoNow | DoToday | DoThisWeek | DoLater | Unclear; **tag** ToR
 | POST | `/api/v1/items/:id/done` | `{ "actor": "User" \| "AI" }` | ToThinkAbout items require at least one note before marking done. |
 | POST | `/api/v1/items/:id/drop` | `{ "actor", "note?" }` | Item must have at least one note (add one if needed). |
 
+## Real-time updates (WebSocket)
+
+Browser clients can connect to `ws(s)://<host>/api/ws` (session cookie required). The server sends `{ "type": "items:changed" }` after every item mutation (create, update, notes, done, drop, agent push). No messages are expected from the client. The connection is per-user; only events for the authenticated user's board are delivered.
+
 ## Item shape
 
-`id`, `humanId`, `userId`, `title`, `description`, `urgency`, `tag`, `importance`, `deadline` (ISO or null), `status`, `createdAt`, `updatedAt`, `openedAt`, `createdBy`, `modifiedBy`, `hasAIChanges?`.
+`id`, `humanId`, `userId`, `title`, `description`, `urgency`, `tag`, `importance`, `deadline` (ISO or null), `status`, `createdAt`, `updatedAt`, `openedAt`, `createdBy`, `modifiedBy`, `hasAIChanges` (boolean), `contentId?`, `contentType?`.
 
 ## Note shape
 

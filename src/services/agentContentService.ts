@@ -113,6 +113,10 @@ async function upsertContent(
   });
 
   if (contentId.existingItemId) {
+    await prisma.item.update({
+      where: { id: contentId.existingItemId },
+      data: { hasAIChanges: true, modifiedBy: "AI", updatedAt: new Date() },
+    });
     return { contentId: contentId.id, itemId: contentId.existingItemId };
   }
 

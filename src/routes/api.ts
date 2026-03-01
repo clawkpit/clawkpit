@@ -197,14 +197,22 @@ api.use(async (req, res, next) => {
     const user = await getUserByKey(token);
     if (user) {
       (req as any).user = user;
+      (req as any).authVia = "apikey";
       return next();
     }
   }
   const user = await getUserFromSession(req.cookies?.session);
   if (!user) return sendApiError(res, 401, ApiErrorCode.UNAUTHORIZED, "Unauthorized");
   (req as any).user = user;
+  (req as any).authVia = "session";
   next();
 });
+
+/** When the caller didn't explicitly provide the actor field, infer it from the auth method: API key → "AI", session → "User". */
+function inferActor(req: any, parsed: Record<string, unknown>, field: string): void {
+  if (field in (req.body ?? {})) return;
+  parsed[field] = req.authVia === "apikey" ? "AI" : "User";
+}
 
 api.get("/me", (req, res) => res.json({ user: (req as any).user }));
 
@@ -336,6 +344,7 @@ api.get("/agent/forms/:id/responses", async (req, res) => {
 api.post("/v1/items", async (req, res) => {
   const parsed = createItemSchema.safeParse(req.body);
   if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
+  inferActor(req, parsed.data, "createdBy");
   const item = await createItem((req as any).user.id, parsed.data);
   broadcastToUser((req as any).user.id, { type: "items:changed" });
   return res.status(201).json(item);
@@ -361,6 +370,8 @@ api.patch("/v1/items/:id", async (req, res) => {
   if (!idParsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Invalid ID format");
   const parsed = updateItemSchema.safeParse(req.body);
   if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
+  const hasSubstantiveFields = Object.keys(req.body ?? {}).some((k) => k !== "hasAIChanges");
+  if (hasSubstantiveFields) inferActor(req, parsed.data, "modifiedBy");
   const item = await patchItem((req as any).user.id, idParsed.data, parsed.data);
   if (!item) return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found");
   broadcastToUser((req as any).user.id, { type: "items:changed" });
@@ -371,6 +382,13 @@ api.post("/v1/items/batch", async (req, res) => {
   const parsed = batchSchema.safeParse(req.body);
   if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
   const userId = (req as any).user.id;
+  const defaultActor = (req as any).authVia === "apikey" ? "AI" : "User";
+  const rawOps = Array.isArray(req.body) ? req.body : [];
+  parsed.data.forEach((op: any, i: number) => {
+    const rawPayload = rawOps[i]?.payload ?? {};
+    if (op.action === "create" && !("createdBy" in rawPayload)) op.payload.createdBy = defaultActor;
+    if (op.action === "update" && !("modifiedBy" in rawPayload)) op.payload.modifiedBy = defaultActor;
+  });
   const results = await Promise.all(
     parsed.data.map(async (op) => {
       if (op.action === "create") {
@@ -390,6 +408,7 @@ api.post("/v1/items/:id/notes", async (req, res) => {
   if (!idParsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Invalid ID format");
   const parsed = createNoteSchema.safeParse(req.body);
   if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
+  inferActor(req, parsed.data, "author");
   try {
     const note = await addNote((req as any).user.id, idParsed.data, parsed.data);
     broadcastToUser((req as any).user.id, { type: "items:changed" });
@@ -409,6 +428,7 @@ api.patch("/v1/notes/:noteId", async (req, res) => {
   if (!noteIdParsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Invalid ID format");
   const parsed = patchNoteSchema.safeParse(req.body);
   if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
+  inferActor(req, parsed.data, "actor");
   try {
     const note = await updateNote((req as any).user.id, noteIdParsed.data, parsed.data.actor, parsed.data.content);
     broadcastToUser((req as any).user.id, { type: "items:changed" });
@@ -424,6 +444,7 @@ api.post("/v1/items/:id/done", async (req, res) => {
   if (!idParsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Invalid ID format");
   const parsed = doneSchema.safeParse(req.body);
   if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
+  inferActor(req, parsed.data, "actor");
   try {
     const item = await markDone((req as any).user.id, idParsed.data, parsed.data.actor);
     broadcastToUser((req as any).user.id, { type: "items:changed" });
@@ -439,6 +460,7 @@ api.post("/v1/items/:id/drop", async (req, res) => {
   if (!idParsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Invalid ID format");
   const parsed = dropSchema.safeParse(req.body);
   if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
+  inferActor(req, parsed.data, "actor");
   try {
     const item = await dropItem((req as any).user.id, idParsed.data, parsed.data.actor, parsed.data.note);
     broadcastToUser((req as any).user.id, { type: "items:changed" });

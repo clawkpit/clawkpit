@@ -22,6 +22,7 @@ type PrismaItemRow = {
   openedAt: Date;
   createdBy: string;
   modifiedBy: string;
+  hasAIChanges: boolean;
   contentId?: string | null;
   content?: { type: string } | null;
 };
@@ -45,7 +46,7 @@ function mapItem(r: PrismaItemRow): Item {
     openedAt: r.openedAt.toISOString(),
     createdBy: r.createdBy as Item["createdBy"],
     modifiedBy: r.modifiedBy as Item["modifiedBy"],
-    hasAIChanges: false,
+    hasAIChanges: r.hasAIChanges ?? false,
     contentId: r.contentId ?? null,
     contentType: (r.content?.type as Item["contentType"]) ?? null,
   };
@@ -81,6 +82,8 @@ export async function createItem(userId: string, payload: any): Promise<Item> {
   const ts = new Date();
   const id = randomUUID();
   const humanId = await nextHumanId(userId);
+  const createdBy = payload.createdBy ?? "User";
+  const hasAIChanges = createdBy === "AI";
   await prisma.item.create({
     data: {
       id,
@@ -96,8 +99,9 @@ export async function createItem(userId: string, payload: any): Promise<Item> {
       createdAt: ts,
       updatedAt: ts,
       openedAt: ts,
-      createdBy: payload.createdBy ?? "User",
-      modifiedBy: payload.createdBy ?? "User",
+      createdBy,
+      modifiedBy: createdBy,
+      hasAIChanges,
       contentId: payload.contentId ?? null,
     },
   });
@@ -156,12 +160,27 @@ export async function listItems(
 export async function patchItem(userId: string, id: string, payload: any): Promise<Item | null> {
   const current = await getItem(userId, id);
   if (!current) return null;
+
+  const payloadKeys = Object.keys(payload).filter((k) => payload[k] !== undefined);
+  const isMetadataOnly = payloadKeys.length === 1 && payloadKeys[0] === "hasAIChanges";
+
+  if (isMetadataOnly) {
+    await prisma.item.update({
+      where: { id },
+      data: { hasAIChanges: payload.hasAIChanges },
+    });
+    return getItem(userId, id);
+  }
+
   const merged = {
     ...current,
     ...payload,
     modifiedBy: (payload.modifiedBy ?? current.modifiedBy) as string,
     updatedAt: now(),
   };
+  const hasAIChanges = payload.hasAIChanges !== undefined
+    ? payload.hasAIChanges
+    : merged.modifiedBy === "AI";
   await prisma.item.update({
     where: { id },
     data: {
@@ -175,6 +194,7 @@ export async function patchItem(userId: string, id: string, payload: any): Promi
       openedAt: new Date(merged.openedAt),
       updatedAt: new Date(merged.updatedAt),
       modifiedBy: merged.modifiedBy,
+      hasAIChanges,
     },
   });
   return getItem(userId, id);
@@ -195,9 +215,10 @@ export async function addNote(userId: string, itemId: string, payload: any): Pro
       updatedAt: ts,
     },
   });
+  const hasAIChanges = payload.author === "AI";
   await prisma.item.update({
     where: { id: itemId },
-    data: { updatedAt: ts, modifiedBy: payload.author },
+    data: { updatedAt: ts, modifiedBy: payload.author, ...(hasAIChanges && { hasAIChanges: true }) },
   });
   const row = await prisma.note.findUniqueOrThrow({ where: { id } });
   return mapNote(row);
@@ -245,9 +266,10 @@ export async function markDone(userId: string, itemId: string, actor: string): P
   if (item.tag === "ToThinkAbout" && (await noteCount(itemId)) === 0)
     throw new Error("DONE_NOTE_REQUIRED");
   const ts = new Date();
+  const hasAIChanges = actor === "AI";
   await prisma.item.update({
     where: { id: itemId },
-    data: { status: "Done", updatedAt: ts, modifiedBy: actor },
+    data: { status: "Done", updatedAt: ts, modifiedBy: actor, ...(hasAIChanges && { hasAIChanges: true }) },
   });
   const updated = await getItem(userId, itemId);
   if (!updated) throw new Error("NOT_FOUND");
@@ -265,9 +287,10 @@ export async function dropItem(
   if (note) await addNote(userId, itemId, { author: actor, content: note });
   if ((await noteCount(itemId)) === 0) throw new Error("DROP_NOTE_REQUIRED");
   const ts = new Date();
+  const hasAIChanges = actor === "AI";
   await prisma.item.update({
     where: { id: itemId },
-    data: { status: "Dropped", updatedAt: ts, modifiedBy: actor },
+    data: { status: "Dropped", updatedAt: ts, modifiedBy: actor, ...(hasAIChanges && { hasAIChanges: true }) },
   });
   const updated = await getItem(userId, itemId);
   if (!updated) throw new Error("NOT_FOUND");

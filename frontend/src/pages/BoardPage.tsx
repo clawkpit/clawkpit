@@ -128,6 +128,12 @@ export function BoardPage() {
     setSelectedItem(item);
     setIsCreate(false);
     setIsPanelOpen(true);
+    if (item.hasAIChanges) {
+      updateItem(item.id, { hasAIChanges: false }).catch(() => {});
+      const cleared = { ...item, hasAIChanges: false };
+      setSelectedItem(cleared);
+      setItems((prev) => prev.map((i) => (i.id === item.id ? cleared : i)));
+    }
     try {
       const notes = await listNotes(item.id);
       setPanelNotes(notes);

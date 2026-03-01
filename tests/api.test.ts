@@ -532,6 +532,181 @@ describe("Clawkpit API", () => {
     });
   });
 
+  describe("hasAIChanges tracking", () => {
+    it("is false when User creates an item", async () => {
+      const agent = await login();
+      const res = await agent.post("/api/v1/items").send({ title: "User item", createdBy: "User" });
+      expect(res.status).toBe(201);
+      expect(res.body.hasAIChanges).toBe(false);
+    });
+
+    it("is true when AI creates an item", async () => {
+      const agent = await login();
+      const res = await agent.post("/api/v1/items").send({ title: "AI item", createdBy: "AI" });
+      expect(res.status).toBe(201);
+      expect(res.body.hasAIChanges).toBe(true);
+    });
+
+    it("is set to true when AI patches an item", async () => {
+      const agent = await login();
+      const created = await agent.post("/api/v1/items").send({ title: "User item" });
+      expect(created.body.hasAIChanges).toBe(false);
+
+      const patched = await agent.patch(`/api/v1/items/${created.body.id}`).send({ title: "AI edit", modifiedBy: "AI" });
+      expect(patched.status).toBe(200);
+      expect(patched.body.hasAIChanges).toBe(true);
+    });
+
+    it("can be cleared via PATCH without bumping updatedAt", async () => {
+      const agent = await login();
+      const created = await agent.post("/api/v1/items").send({ title: "AI item", createdBy: "AI" });
+      expect(created.body.hasAIChanges).toBe(true);
+      const originalUpdatedAt = created.body.updatedAt;
+
+      const cleared = await agent.patch(`/api/v1/items/${created.body.id}`).send({ hasAIChanges: false });
+      expect(cleared.status).toBe(200);
+      expect(cleared.body.hasAIChanges).toBe(false);
+      expect(cleared.body.updatedAt).toBe(originalUpdatedAt);
+    });
+
+    it("is set to true when AI adds a note", async () => {
+      const agent = await login();
+      const created = await agent.post("/api/v1/items").send({ title: "Item" });
+      expect(created.body.hasAIChanges).toBe(false);
+
+      await agent.post(`/api/v1/items/${created.body.id}/notes`).send({ author: "AI", content: "AI note" });
+      const item = await agent.get(`/api/v1/items/${created.body.id}`);
+      expect(item.body.hasAIChanges).toBe(true);
+    });
+
+    it("stays false when User adds a note", async () => {
+      const agent = await login();
+      const created = await agent.post("/api/v1/items").send({ title: "Item" });
+      expect(created.body.hasAIChanges).toBe(false);
+
+      await agent.post(`/api/v1/items/${created.body.id}/notes`).send({ author: "User", content: "User note" });
+      const item = await agent.get(`/api/v1/items/${created.body.id}`);
+      expect(item.body.hasAIChanges).toBe(false);
+    });
+
+    it("is set to true when AI marks item done", async () => {
+      const agent = await login();
+      const created = await agent.post("/api/v1/items").send({ title: "Task", tag: "ToDo" });
+      const done = await agent.post(`/api/v1/items/${created.body.id}/done`).send({ actor: "AI" });
+      expect(done.status).toBe(200);
+      expect(done.body.hasAIChanges).toBe(true);
+    });
+
+    it("is set to true when AI drops an item", async () => {
+      const agent = await login();
+      const created = await agent.post("/api/v1/items").send({ title: "To drop" });
+      await agent.post(`/api/v1/items/${created.body.id}/notes`).send({ author: "User", content: "reason" });
+      // Clear any flag from note (it was User note so should be false, but be explicit)
+      await agent.patch(`/api/v1/items/${created.body.id}`).send({ hasAIChanges: false });
+
+      const dropped = await agent.post(`/api/v1/items/${created.body.id}/drop`).send({ actor: "AI" });
+      expect(dropped.status).toBe(200);
+      expect(dropped.body.hasAIChanges).toBe(true);
+    });
+
+    it("is set to true when agent re-pushes existing markdown content", async () => {
+      const agent = await login();
+      const first = await agent.post("/api/agent/markdown").send({
+        title: "Doc",
+        markdown: "# Doc v1",
+        externalId: "repush-1",
+      });
+      expect(first.status).toBe(201);
+
+      // Clear the flag (simulating user has read it)
+      await agent.patch(`/api/v1/items/${first.body.itemId}`).send({ hasAIChanges: false });
+      const cleared = await agent.get(`/api/v1/items/${first.body.itemId}`);
+      expect(cleared.body.hasAIChanges).toBe(false);
+
+      // Re-push with updated content
+      const second = await agent.post("/api/agent/markdown").send({
+        title: "Doc",
+        markdown: "# Doc v2",
+        externalId: "repush-1",
+      });
+      expect(second.status).toBe(201);
+      expect(second.body.itemId).toBe(first.body.itemId);
+
+      const item = await agent.get(`/api/v1/items/${first.body.itemId}`);
+      expect(item.body.hasAIChanges).toBe(true);
+    });
+
+    it("defaults createdBy to AI for API-key-authenticated requests", async () => {
+      const session = await login();
+      const keyRes = await session.post("/api/me/keys").send({});
+      const apiKey = keyRes.body.key;
+
+      const res = await request(app)
+        .post("/api/v1/items")
+        .set("Authorization", `Bearer ${apiKey}`)
+        .send({ title: "Agent item" });
+      expect(res.status).toBe(201);
+      expect(res.body.createdBy).toBe("AI");
+      expect(res.body.modifiedBy).toBe("AI");
+      expect(res.body.hasAIChanges).toBe(true);
+    });
+
+    it("defaults modifiedBy to AI for API-key PATCH", async () => {
+      const session = await login();
+      const keyRes = await session.post("/api/me/keys").send({});
+      const apiKey = keyRes.body.key;
+
+      const created = await session.post("/api/v1/items").send({ title: "User item" });
+      expect(created.body.hasAIChanges).toBe(false);
+
+      const patched = await request(app)
+        .patch(`/api/v1/items/${created.body.id}`)
+        .set("Authorization", `Bearer ${apiKey}`)
+        .send({ urgency: "DoNow" });
+      expect(patched.status).toBe(200);
+      expect(patched.body.modifiedBy).toBe("AI");
+      expect(patched.body.hasAIChanges).toBe(true);
+    });
+
+    it("respects explicit createdBy override even with API key", async () => {
+      const session = await login();
+      const keyRes = await session.post("/api/me/keys").send({});
+      const apiKey = keyRes.body.key;
+
+      const res = await request(app)
+        .post("/api/v1/items")
+        .set("Authorization", `Bearer ${apiKey}`)
+        .send({ title: "Explicit user item", createdBy: "User" });
+      expect(res.status).toBe(201);
+      expect(res.body.createdBy).toBe("User");
+      expect(res.body.hasAIChanges).toBe(false);
+    });
+
+    it("session PATCH on AI-modified item does not re-trigger hasAIChanges", async () => {
+      const agent = await login();
+      const created = await agent.post("/api/v1/items").send({ title: "Task", createdBy: "AI" });
+      expect(created.body.hasAIChanges).toBe(true);
+
+      await agent.patch(`/api/v1/items/${created.body.id}`).send({ hasAIChanges: false });
+
+      const patched = await agent.patch(`/api/v1/items/${created.body.id}`).send({ urgency: "DoNow" });
+      expect(patched.status).toBe(200);
+      expect(patched.body.modifiedBy).toBe("User");
+      expect(patched.body.hasAIChanges).toBe(false);
+    });
+
+    it("user moving an AI-flagged item clears hasAIChanges", async () => {
+      const agent = await login();
+      const created = await agent.post("/api/v1/items").send({ title: "AI task", createdBy: "AI" });
+      expect(created.body.hasAIChanges).toBe(true);
+
+      const moved = await agent.patch(`/api/v1/items/${created.body.id}`).send({ urgency: "DoNow" });
+      expect(moved.status).toBe(200);
+      expect(moved.body.modifiedBy).toBe("User");
+      expect(moved.body.hasAIChanges).toBe(false);
+    });
+  });
+
   describe("email change verification", () => {
     it("confirm-email-change rejects invalid token", async () => {
       const res = await request(app).post("/api/auth/confirm-email-change").send({ token: "invalid" });

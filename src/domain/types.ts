@@ -26,8 +26,8 @@ export type Item = {
   openedAt: string;
   createdBy: Actor;
   modifiedBy: Actor;
-  /** Placeholder for future AI-change tracking; API always returns false for now */
-  hasAIChanges?: boolean;
+  /** True when the AI agent has created or modified this item since the user last opened it. */
+  hasAIChanges: boolean;
   /** When set, item is backed by agent-pushed content (markdown or form). */
   contentId?: string | null;
   /** The type of linked agent content. Only present when contentId is set. */

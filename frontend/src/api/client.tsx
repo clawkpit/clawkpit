@@ -170,7 +170,7 @@ function mapItem(raw: {
   updatedAt: string;
   createdBy: string;
   modifiedBy: string;
-  hasAIChanges?: boolean;
+  hasAIChanges: boolean;
   contentId?: string | null;
   contentType?: string | null;
 }): Item {
@@ -187,7 +187,7 @@ function mapItem(raw: {
     createdBy: raw.createdBy as Item["createdBy"],
     modifiedBy: raw.modifiedBy as Item["modifiedBy"],
     modifiedAt: new Date(raw.updatedAt),
-    hasAIChanges: raw.hasAIChanges ?? false,
+    hasAIChanges: raw.hasAIChanges,
     contentId: raw.contentId ?? undefined,
     contentType: (raw.contentType as Item["contentType"]) ?? undefined,
   };
@@ -259,6 +259,7 @@ export interface UpdateItemPayload {
   deadline?: Date | null;
   status?: Item["status"];
   modifiedBy?: Item["modifiedBy"];
+  hasAIChanges?: boolean;
 }
 
 export async function updateItem(id: string, payload: UpdateItemPayload): Promise<Item> {
@@ -271,6 +272,7 @@ export async function updateItem(id: string, payload: UpdateItemPayload): Promis
   if (payload.deadline !== undefined) body.deadline = payload.deadline ? payload.deadline.toISOString() : null;
   if (payload.status !== undefined) body.status = payload.status;
   if (payload.modifiedBy !== undefined) body.modifiedBy = payload.modifiedBy;
+  if (payload.hasAIChanges !== undefined) body.hasAIChanges = payload.hasAIChanges;
   const raw = await apiFetch<Parameters<typeof mapItem>[0]>(`/v1/items/${id}`, {
     method: "PATCH",
     body: JSON.stringify(body),

@@ -27,7 +27,8 @@ export const updateItemSchema = z.object({
   deadline: z.string().datetime().nullable().optional(),
   status: status.optional(),
   openedAt: z.string().datetime().optional(),
-  modifiedBy: actor.default("User")
+  modifiedBy: actor.optional(),
+  hasAIChanges: z.boolean().optional(),
 }).refine((v) => Object.keys(v).length > 0, "No fields provided");
 
 export const listItemsQuerySchema = z.object({
