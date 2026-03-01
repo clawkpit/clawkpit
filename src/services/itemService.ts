@@ -6,7 +6,7 @@ function now(): string {
   return new Date().toISOString();
 }
 
-function mapItem(r: {
+type PrismaItemRow = {
   id: string;
   humanId: number;
   userId: string;
@@ -22,7 +22,13 @@ function mapItem(r: {
   openedAt: Date;
   createdBy: string;
   modifiedBy: string;
-}): Item {
+  contentId?: string | null;
+  content?: { type: string } | null;
+};
+
+const CONTENT_INCLUDE = { content: { select: { type: true } } } as const;
+
+function mapItem(r: PrismaItemRow): Item {
   return {
     id: r.id,
     humanId: r.humanId,
@@ -40,6 +46,8 @@ function mapItem(r: {
     createdBy: r.createdBy as Item["createdBy"],
     modifiedBy: r.modifiedBy as Item["modifiedBy"],
     hasAIChanges: false,
+    contentId: r.contentId ?? null,
+    contentType: (r.content?.type as Item["contentType"]) ?? null,
   };
 }
 
@@ -90,6 +98,7 @@ export async function createItem(userId: string, payload: any): Promise<Item> {
       openedAt: ts,
       createdBy: payload.createdBy ?? "User",
       modifiedBy: payload.createdBy ?? "User",
+      contentId: payload.contentId ?? null,
     },
   });
   const item = await getItem(userId, id);
@@ -98,7 +107,7 @@ export async function createItem(userId: string, payload: any): Promise<Item> {
 }
 
 export async function getItem(userId: string, id: string): Promise<Item | null> {
-  const row = await prisma.item.findFirst({ where: { id, userId } });
+  const row = await prisma.item.findFirst({ where: { id, userId }, include: CONTENT_INCLUDE });
   return row ? mapItem(row) : null;
 }
 
@@ -122,7 +131,7 @@ export async function listItems(
 
   const [total, allRows] = await Promise.all([
     prisma.item.count({ where }),
-    prisma.item.findMany({ where }),
+    prisma.item.findMany({ where, include: CONTENT_INCLUDE }),
   ]);
 
   const importanceOrder: Record<string, number> = { High: 0, Medium: 1, Low: 2 };

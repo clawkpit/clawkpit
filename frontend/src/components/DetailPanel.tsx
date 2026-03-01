@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
-import type { Item, ItemNote, ItemTag, ItemColumn, ItemImportance } from "@/types/items";
+import type { Item, ItemNote, ItemTag, ItemColumn, ItemImportance, ItemContentType } from "@/types/items";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { NotesSection } from "./NotesSection";
 import { ErrorState } from "./ErrorState";
-import { XIcon, CheckIcon, ArchiveXIcon, RotateCcwIcon } from "lucide-react";
+import { XIcon, CheckIcon, ArchiveXIcon, RotateCcwIcon, BookOpenIcon, ClipboardListIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface DetailPanelProps {
@@ -20,6 +20,7 @@ interface DetailPanelProps {
   onDrop?: (itemId: string) => void;
   onAddNote?: (itemId: string, content: string) => void;
   onEditNote?: (noteId: string, content: string) => void;
+  onContentAction?: (type: ItemContentType, item: Item) => void;
 }
 
 export function DetailPanel({
@@ -33,6 +34,7 @@ export function DetailPanel({
   onDrop,
   onAddNote,
   onEditNote,
+  onContentAction,
 }: DetailPanelProps) {
   const [error, setError] = useState<string | null>(null);
   const [localTitle, setLocalTitle] = useState("");
@@ -265,6 +267,25 @@ export function DetailPanel({
             ) : (
               <>
                 <div className="pt-4 border-t border-border">
+                  {item.contentId && item.contentType && (
+                    <Button
+                      onClick={() => onContentAction?.(item.contentType!, item)}
+                      variant="outline"
+                      className="w-full mb-3"
+                    >
+                      {item.contentType === "markdown" ? (
+                        <>
+                          <BookOpenIcon className="w-4 h-4 mr-2" />
+                          Read
+                        </>
+                      ) : (
+                        <>
+                          <ClipboardListIcon className="w-4 h-4 mr-2" />
+                          Open Form
+                        </>
+                      )}
+                    </Button>
+                  )}
                   <div className="flex gap-3">
                     {item.status === "Done" ? (
                       <Button onClick={handleUndoDone} className="flex-1" variant="default">

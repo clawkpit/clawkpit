@@ -15,6 +15,9 @@ export interface ItemNote {
   updatedAt: Date;
 }
 
+/** When item has contentId, this indicates the type of agent-pushed content. */
+export type ItemContentType = "markdown" | "form";
+
 export interface Item {
   id: string;
   humanId: number;
@@ -30,6 +33,10 @@ export interface Item {
   modifiedAt: Date;
   hasAIChanges: boolean;
   notes?: ItemNote[];
+  /** Set when item is backed by agent-pushed markdown (ToRead) or form (ToDo). */
+  contentId?: string;
+  /** The type of linked agent content. Only present when contentId is set. */
+  contentType?: ItemContentType;
 }
 
 export interface FilterState {

@@ -6,6 +6,7 @@ export const ApiErrorCode = {
   FORBIDDEN: "FORBIDDEN",
   NOT_FOUND: "NOT_FOUND",
   RATE_LIMITED: "RATE_LIMITED",
+  INTERNAL_ERROR: "INTERNAL_ERROR",
 } as const;
 
 export type ApiErrorCodeType = (typeof ApiErrorCode)[keyof typeof ApiErrorCode];

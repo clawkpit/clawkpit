@@ -10,7 +10,9 @@ const app = createApp();
 
 async function resetDb() {
   await prisma.note.deleteMany();
+  await prisma.formResponse.deleteMany();
   await prisma.item.deleteMany();
+  await prisma.agentContent.deleteMany();
   await prisma.userCounter.deleteMany();
   await prisma.apiKey.deleteMany();
   await prisma.openclawDevice.deleteMany();
@@ -301,6 +303,232 @@ describe("Clawkpit API", () => {
       const byAI = await agent.get("/api/v1/items?status=Active&modifiedBy=AI");
       expect(byAI.status).toBe(200);
       expect(byAI.body.items.map((i: any) => i.title)).toEqual(["AI edited"]);
+    });
+  });
+
+  describe("Agent content", () => {
+    it("POST /api/agent/markdown creates content and ToRead item, GET returns markdown", async () => {
+      const agent = await login();
+      const push = await agent.post("/api/agent/markdown").send({
+        title: "My doc",
+        markdown: "# Hello\n\nThis is **markdown**.",
+      });
+      expect(push.status).toBe(201);
+      expect(push.body.markdownId).toBeTruthy();
+      expect(push.body.itemId).toBeTruthy();
+
+      const getMd = await agent.get(`/api/markdown/${push.body.markdownId}`);
+      expect(getMd.status).toBe(200);
+      expect(getMd.body.title).toBe("My doc");
+      expect(getMd.body.markdown).toContain("# Hello");
+      expect(getMd.body.markdown).toContain("**markdown**");
+
+      const getItem = await agent.get(`/api/v1/items/${push.body.itemId}`);
+      expect(getItem.status).toBe(200);
+      expect(getItem.body.tag).toBe("ToRead");
+      expect(getItem.body.contentId).toBe(push.body.markdownId);
+    });
+
+    it("markdown idempotency: same externalId returns same markdownId and only one item", async () => {
+      const agent = await login();
+      const first = await agent.post("/api/agent/markdown").send({
+        title: "Same",
+        markdown: "# Same doc",
+        externalId: "idem-1",
+      });
+      expect(first.status).toBe(201);
+      const second = await agent.post("/api/agent/markdown").send({
+        title: "Same",
+        markdown: "# Same doc",
+        externalId: "idem-1",
+      });
+      expect(second.status).toBe(201);
+      expect(second.body.markdownId).toBe(first.body.markdownId);
+      const list = await agent.get("/api/v1/items?status=Active&tag=ToRead");
+      const toRead = list.body.items.filter((i: any) => i.contentId === first.body.markdownId);
+      expect(toRead.length).toBe(1);
+    });
+
+    it("POST /api/agent/form creates form content and ToDo item, GET returns form", async () => {
+      const agent = await login();
+      const formMd = `# Survey
+## Name [text]
+- required: true
+## Score [scale]
+- min: 1
+- max: 5
+`;
+      const push = await agent.post("/api/agent/form").send({
+        title: "Survey",
+        formMarkdown: formMd,
+      });
+      expect(push.status).toBe(201);
+      expect(push.body.formId).toBeTruthy();
+      expect(push.body.itemId).toBeTruthy();
+
+      const getForm = await agent.get(`/api/forms/${push.body.formId}`);
+      expect(getForm.status).toBe(200);
+      expect(getForm.body.title).toBe("Survey");
+      expect(getForm.body.formMarkdown).toContain("## Name [text]");
+
+      const getItem = await agent.get(`/api/v1/items/${push.body.itemId}`);
+      expect(getItem.status).toBe(200);
+      expect(getItem.body.tag).toBe("ToDo");
+      expect(getItem.body.contentId).toBe(push.body.formId);
+    });
+
+    it("POST /api/forms/:id/submit saves response and marks item Done", async () => {
+      const agent = await login();
+      const formMd = `# Quick
+## Answer [text]
+`;
+      const push = await agent.post("/api/agent/form").send({ title: "Quick", formMarkdown: formMd });
+      expect(push.status).toBe(201);
+      const formId = push.body.formId;
+      const itemId = push.body.itemId;
+
+      const submit = await agent.post(`/api/forms/${formId}/submit`).send({
+        itemId,
+        response: { answer: "yes" },
+      });
+      expect(submit.status).toBe(201);
+      expect(submit.body.id).toBeTruthy();
+
+      const item = await agent.get(`/api/v1/items/${itemId}`);
+      expect(item.status).toBe(200);
+      expect(item.body.status).toBe("Done");
+
+      const responses = await agent.get(`/api/agent/forms/${formId}/responses`);
+      expect(responses.status).toBe(200);
+      expect(responses.body.responses).toHaveLength(1);
+      expect(responses.body.responses[0].response).toEqual({ answer: "yes" });
+    });
+
+    it("user B cannot access user A markdown (GET /api/markdown/:id)", async () => {
+      const agentA = await login("a@example.com");
+      const agentB = await login("b@example.com");
+
+      const push = await agentA.post("/api/agent/markdown").send({
+        title: "Secret",
+        markdown: "# Secret",
+      });
+      expect(push.status).toBe(201);
+      const markdownId = push.body.markdownId;
+
+      const getB = await agentB.get(`/api/markdown/${markdownId}`);
+      expect(getB.status).toBe(404);
+      expect(getB.body.error?.code).toBe("NOT_FOUND");
+    });
+
+    it("user B cannot access user A form or submit (GET /api/forms/:id, POST submit)", async () => {
+      const agentA = await login("a@example.com");
+      const agentB = await login("b@example.com");
+
+      const push = await agentA.post("/api/agent/form").send({
+        title: "A form",
+        formMarkdown: "# F\n## X [text]",
+      });
+      expect(push.status).toBe(201);
+      const formId = push.body.formId;
+
+      const getB = await agentB.get(`/api/forms/${formId}`);
+      expect(getB.status).toBe(404);
+
+      const submitB = await agentB.post(`/api/forms/${formId}/submit`).send({
+        itemId: push.body.itemId,
+        response: { x: "y" },
+      });
+      expect(submitB.status).toBe(404);
+    });
+
+    it("markdown contentHash dedup: same body without externalId returns same markdownId", async () => {
+      const agent = await login();
+      const md = "# Duplicate body\n\nSame content here.";
+      const first = await agent.post("/api/agent/markdown").send({ markdown: md });
+      expect(first.status).toBe(201);
+      const second = await agent.post("/api/agent/markdown").send({ markdown: md });
+      expect(second.status).toBe(201);
+      expect(second.body.markdownId).toBe(first.body.markdownId);
+      expect(second.body.itemId).toBe(first.body.itemId);
+    });
+
+    it("form idempotency: same externalId returns same formId and only one active item", async () => {
+      const agent = await login();
+      const formMd = "# Idem form\n## Name [text]\n- required: true\n";
+      const first = await agent.post("/api/agent/form").send({
+        title: "Idem",
+        formMarkdown: formMd,
+        externalId: "form-idem-1",
+      });
+      expect(first.status).toBe(201);
+      const second = await agent.post("/api/agent/form").send({
+        title: "Idem",
+        formMarkdown: formMd,
+        externalId: "form-idem-1",
+      });
+      expect(second.status).toBe(201);
+      expect(second.body.formId).toBe(first.body.formId);
+      const list = await agent.get("/api/v1/items?status=Active&tag=ToDo");
+      const linked = list.body.items.filter((i: any) => i.contentId === first.body.formId);
+      expect(linked.length).toBe(1);
+    });
+
+    it("submit form response against markdown content returns 400 NOT_A_FORM", async () => {
+      const agent = await login();
+      const push = await agent.post("/api/agent/markdown").send({
+        title: "Not a form",
+        markdown: "# Just markdown",
+      });
+      expect(push.status).toBe(201);
+      const submit = await agent.post(`/api/forms/${push.body.markdownId}/submit`).send({
+        response: { answer: "yes" },
+      });
+      expect(submit.status).toBe(400);
+      expect(submit.body.error?.code).toBe("BAD_REQUEST");
+    });
+
+    it("agent markdown push returns contentType in item response", async () => {
+      const agent = await login();
+      const push = await agent.post("/api/agent/markdown").send({
+        title: "Typed",
+        markdown: "# Typed doc",
+      });
+      expect(push.status).toBe(201);
+      const item = await agent.get(`/api/v1/items/${push.body.itemId}`);
+      expect(item.status).toBe(200);
+      expect(item.body.contentType).toBe("markdown");
+    });
+
+    it("agent form push returns contentType in item response", async () => {
+      const agent = await login();
+      const push = await agent.post("/api/agent/form").send({
+        title: "Typed form",
+        formMarkdown: "# TF\n## Q [text]\n",
+      });
+      expect(push.status).toBe(201);
+      const item = await agent.get(`/api/v1/items/${push.body.itemId}`);
+      expect(item.status).toBe(200);
+      expect(item.body.contentType).toBe("form");
+    });
+
+    it("agent markdown push with empty body returns 400", async () => {
+      const agent = await login();
+      const res = await agent.post("/api/agent/markdown").send({
+        title: "Empty",
+        markdown: "",
+      });
+      expect(res.status).toBe(400);
+      expect(res.body.error?.code).toBe("BAD_REQUEST");
+    });
+
+    it("agent form push with empty body returns 400", async () => {
+      const agent = await login();
+      const res = await agent.post("/api/agent/form").send({
+        title: "Empty",
+        formMarkdown: "",
+      });
+      expect(res.status).toBe(400);
+      expect(res.body.error?.code).toBe("BAD_REQUEST");
     });
   });
 

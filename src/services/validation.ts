@@ -96,6 +96,23 @@ export const openclawDevicePollSchema = z.object({
   device_code: z.string().min(1)
 });
 
+export const agentMarkdownSchema = z.object({
+  title: z.string().max(500).optional(),
+  markdown: z.string().min(1).max(100000),
+  externalId: z.string().max(255).optional()
+});
+
+export const agentFormSchema = z.object({
+  title: z.string().max(500).optional(),
+  formMarkdown: z.string().min(1).max(100000),
+  externalId: z.string().max(255).optional()
+});
+
+export const submitFormResponseSchema = z.object({
+  itemId: z.string().uuid().optional(),
+  response: z.record(z.string(), z.any())
+});
+
 /** Reusable UUID for route params (e.g. item id, note id, api key id). */
 export const uuidParam = z.string().uuid();
 

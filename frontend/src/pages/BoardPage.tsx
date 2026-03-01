@@ -5,6 +5,8 @@ import { Board } from "@/components/board/Board";
 import { BoardFilters } from "@/components/board/Filters";
 import { DetailPanel } from "@/components/DetailPanel";
 import { EmptyState } from "@/components/EmptyState";
+import { FormModal } from "@/components/FormModal";
+import { MarkdownModal } from "@/components/MarkdownModal";
 import { SettingsPanel } from "@/components/SettingsPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,6 +70,7 @@ export function BoardPage() {
   const [openclawModalLoading, setOpenclawModalLoading] = useState(false);
   const [openclawModalError, setOpenclawModalError] = useState<string | null>(null);
   const [openclawModalCopiedStep, setOpenclawModalCopiedStep] = useState<number | null>(null);
+  const [contentModal, setContentModal] = useState<{ type: "markdown" | "form"; contentId: string; itemId: string } | null>(null);
 
   const loadItems = useCallback(async () => {
     setLoading(true);
@@ -234,6 +237,15 @@ export function BoardPage() {
     }
   };
 
+  const handleContentAction = (type: "markdown" | "form", item: Item) => {
+    if (item.contentId) setContentModal({ type, contentId: item.contentId, itemId: item.id });
+  };
+
+  const handleContentModalClose = () => {
+    setContentModal(null);
+    loadItems();
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <div className="border-b border-border bg-background sticky top-0 z-30">
@@ -306,6 +318,7 @@ export function BoardPage() {
             draggedItem={draggedItem}
             onDragStart={setDraggedItem}
             onDragEnd={() => setDraggedItem(null)}
+            onAction={handleContentAction}
           />
         )}
       </div>
@@ -321,6 +334,21 @@ export function BoardPage() {
         onDrop={handleDrop}
         onAddNote={handleAddNote}
         onEditNote={handleEditNote}
+        onContentAction={handleContentAction}
+      />
+      <MarkdownModal
+        open={contentModal?.type === "markdown"}
+        onOpenChange={(open) => !open && setContentModal(null)}
+        contentId={contentModal?.type === "markdown" ? contentModal.contentId : null}
+        itemId={contentModal?.type === "markdown" ? contentModal.itemId ?? null : null}
+        onMarkRead={handleContentModalClose}
+      />
+      <FormModal
+        open={contentModal?.type === "form"}
+        onOpenChange={(open) => !open && setContentModal(null)}
+        contentId={contentModal?.type === "form" ? contentModal.contentId : null}
+        itemId={contentModal?.type === "form" ? contentModal.itemId ?? null : null}
+        onSubmit={handleContentModalClose}
       />
       <SettingsPanel
         isOpen={isSettingsOpen}

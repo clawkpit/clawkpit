@@ -22,6 +22,8 @@ model User {
   apiKeys             ApiKey[]
   emailChangeRequest  EmailChangeRequest?
   openclawDevices     OpenclawDevice[]
+  agentContents       AgentContent[]
+  formResponses       FormResponse[]
 
   @@map("users")
 }
@@ -66,15 +68,55 @@ model Item {
   openedAt    DateTime @map("opened_at")
   createdBy   String   @map("created_by")
   modifiedBy  String   @map("modified_by")
+  contentId   String?  @map("content_id")
 
-  user  User  @relation(fields: [userId], references: [id])
-  notes Note[]
+  user          User           @relation(fields: [userId], references: [id])
+  notes         Note[]
+  content       AgentContent?  @relation(fields: [contentId], references: [id])
+  formResponses FormResponse[]
 
   @@unique([userId, humanId])
   @@index([userId, status, urgency])
   @@index([userId, deadline])
   @@index([userId, updatedAt])
+  @@index([userId, contentId])
   @@map("items")
+}
+
+model AgentContent {
+  id          String    @id
+  userId      String    @map("user_id")
+  type        String
+  title       String?
+  body        String
+  externalId  String?   @map("external_id")
+  contentHash String    @map("content_hash")
+  createdAt   DateTime  @map("created_at")
+  updatedAt   DateTime  @map("updated_at")
+
+  user         User          @relation(fields: [userId], references: [id])
+  items        Item[]
+  formResponses FormResponse[]
+
+  @@unique([userId, externalId])
+  @@index([userId, contentHash])
+  @@map("agent_contents")
+}
+
+model FormResponse {
+  id        String   @id
+  userId    String   @map("user_id")
+  contentId String   @map("content_id")
+  itemId    String?  @map("item_id")
+  response  String
+  createdAt DateTime @map("created_at")
+
+  user    User         @relation(fields: [userId], references: [id])
+  content AgentContent @relation(fields: [contentId], references: [id])
+  item    Item?        @relation(fields: [itemId], references: [id], onDelete: SetNull)
+
+  @@index([contentId])
+  @@map("form_responses")
 }
 
 model Note {

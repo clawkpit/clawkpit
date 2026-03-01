@@ -1,5 +1,7 @@
 import { Router } from "express";
 import {
+  agentFormSchema,
+  agentMarkdownSchema,
   batchSchema,
   confirmEmailChangeSchema,
   consumeMagicLinkSchema,
@@ -14,6 +16,7 @@ import {
   openclawDeviceStartSchema,
   patchNoteSchema,
   requestMagicLinkSchema,
+  submitFormResponseSchema,
   updateItemSchema,
   updateMeSchema,
   uuidParam
@@ -37,6 +40,13 @@ import {
   consumeConfirmRateLimit,
   consumePollRateLimit
 } from "../services/openclawDeviceService";
+import {
+  getContent,
+  getFormResponses,
+  submitFormResponse,
+  upsertForm,
+  upsertMarkdown
+} from "../services/agentContentService";
 import { addNote, createItem, dropItem, getItem, listItems, listNotes, markDone, patchItem, updateNote } from "../services/itemService";
 import { sendApiError, ApiErrorCode } from "../services/apiError";
 import {
@@ -242,6 +252,81 @@ api.delete("/me/keys/:id", async (req, res) => {
   const deleted = await deleteKey((req as any).user.id, idParsed.data);
   if (!deleted) return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found");
   return res.status(204).send();
+});
+
+// Agent push: markdown (ToRead)
+api.post("/agent/markdown", async (req, res) => {
+  const parsed = agentMarkdownSchema.safeParse(req.body);
+  if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
+  try {
+    const result = await upsertMarkdown((req as any).user.id, parsed.data);
+    return res.status(201).json(result);
+  } catch (e: any) {
+    return sendApiError(res, 500, ApiErrorCode.INTERNAL_ERROR, e.message ?? "Failed to upsert markdown");
+  }
+});
+
+api.get("/markdown/:id", async (req, res) => {
+  const idParsed = uuidParam.safeParse(req.params.id);
+  if (!idParsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Invalid ID format");
+  const content = await getContent((req as any).user.id, idParsed.data);
+  if (!content) return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found");
+  if (content.type !== "markdown") return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found");
+  return res.json({ id: content.id, title: content.title, markdown: content.body, createdAt: content.createdAt });
+});
+
+// Agent push: form (ToDo)
+api.post("/agent/form", async (req, res) => {
+  const parsed = agentFormSchema.safeParse(req.body);
+  if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
+  try {
+    const result = await upsertForm((req as any).user.id, parsed.data);
+    return res.status(201).json(result);
+  } catch (e: any) {
+    return sendApiError(res, 500, ApiErrorCode.INTERNAL_ERROR, e.message ?? "Failed to upsert form");
+  }
+});
+
+api.get("/forms/:id", async (req, res) => {
+  const idParsed = uuidParam.safeParse(req.params.id);
+  if (!idParsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Invalid ID format");
+  const content = await getContent((req as any).user.id, idParsed.data);
+  if (!content) return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found");
+  if (content.type !== "form") return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found");
+  return res.json({ id: content.id, title: content.title, formMarkdown: content.body, createdAt: content.createdAt });
+});
+
+api.post("/forms/:id/submit", async (req, res) => {
+  const idParsed = uuidParam.safeParse(req.params.id);
+  if (!idParsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Invalid ID format");
+  const parsed = submitFormResponseSchema.safeParse(req.body);
+  if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
+  try {
+    const responseId = await submitFormResponse(
+      (req as any).user.id,
+      idParsed.data,
+      parsed.data.itemId,
+      parsed.data.response as Record<string, unknown>
+    );
+    return res.status(201).json({ id: responseId });
+  } catch (e: any) {
+    if (e.message === "NOT_FOUND") return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found");
+    if (e.message === "NOT_A_FORM") return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Content is not a form");
+    const msg = typeof e?.message === "string" ? e.message : "Failed to submit";
+    return sendApiError(res, 500, ApiErrorCode.INTERNAL_ERROR, msg);
+  }
+});
+
+api.get("/agent/forms/:id/responses", async (req, res) => {
+  const idParsed = uuidParam.safeParse(req.params.id);
+  if (!idParsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Invalid ID format");
+  try {
+    const responses = await getFormResponses((req as any).user.id, idParsed.data);
+    return res.json({ responses });
+  } catch (e: any) {
+    if (e.message === "NOT_FOUND") return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found");
+    return sendApiError(res, 500, ApiErrorCode.INTERNAL_ERROR, e.message ?? "Failed to get responses");
+  }
 });
 
 api.post("/v1/items", async (req, res) => {

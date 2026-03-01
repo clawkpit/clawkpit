@@ -28,6 +28,32 @@ export type Item = {
   modifiedBy: Actor;
   /** Placeholder for future AI-change tracking; API always returns false for now */
   hasAIChanges?: boolean;
+  /** When set, item is backed by agent-pushed content (markdown or form). */
+  contentId?: string | null;
+  /** The type of linked agent content. Only present when contentId is set. */
+  contentType?: AgentContentType | null;
+};
+
+export type AgentContentType = "markdown" | "form";
+
+export type AgentContent = {
+  id: string;
+  userId: string;
+  type: AgentContentType;
+  title: string | null;
+  body: string;
+  externalId: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type FormResponse = {
+  id: string;
+  userId: string;
+  contentId: string;
+  itemId: string | null;
+  response: Record<string, unknown>;
+  createdAt: string;
 };
 
 export type Note = {

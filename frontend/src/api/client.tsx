@@ -171,6 +171,8 @@ function mapItem(raw: {
   createdBy: string;
   modifiedBy: string;
   hasAIChanges?: boolean;
+  contentId?: string | null;
+  contentType?: string | null;
 }): Item {
   return {
     id: raw.id,
@@ -186,6 +188,8 @@ function mapItem(raw: {
     modifiedBy: raw.modifiedBy as Item["modifiedBy"],
     modifiedAt: new Date(raw.updatedAt),
     hasAIChanges: raw.hasAIChanges ?? false,
+    contentId: raw.contentId ?? undefined,
+    contentType: (raw.contentType as Item["contentType"]) ?? undefined,
   };
 }
 
@@ -311,4 +315,36 @@ export async function dropItem(itemId: string, actor: Item["modifiedBy"] = "User
     body: JSON.stringify({ actor, note }),
   });
   return mapItem(raw);
+}
+
+export interface MarkdownContent {
+  id: string;
+  title: string | null;
+  markdown: string;
+  createdAt: string;
+}
+
+export async function getMarkdownContent(id: string): Promise<MarkdownContent> {
+  return apiFetch<MarkdownContent>(`/markdown/${id}`);
+}
+
+export interface FormContent {
+  id: string;
+  title: string | null;
+  formMarkdown: string;
+  createdAt: string;
+}
+
+export async function getFormContent(id: string): Promise<FormContent> {
+  return apiFetch<FormContent>(`/forms/${id}`);
+}
+
+export async function submitFormResponse(
+  formId: string,
+  payload: { itemId?: string; response: Record<string, unknown> }
+): Promise<{ id: string }> {
+  return apiFetch<{ id: string }>(`/forms/${formId}/submit`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
