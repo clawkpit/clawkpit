@@ -11,13 +11,7 @@ export type FormFieldType =
   | "select"
   | "date"
   | "scale"
-  | "info"
-  | "todo-list";
-
-export interface TodoListRow {
-  id: string;
-  cells: string[];
-}
+  | "info";
 
 export interface FormField {
   type: FormFieldType;
@@ -31,8 +25,6 @@ export interface FormField {
   min?: number;
   max?: number;
   step?: number;
-  /** For type "todo-list": table rows. cells[7] is the Status column (editable). */
-  rows?: TodoListRow[];
 }
 
 export interface FormSection {
@@ -124,7 +116,6 @@ export function parseFormMarkdown(markdown: string): FormSchema {
 
     i += 1;
     const desc: string[] = [];
-    const tableLines: string[] = [];
     const attrs: Record<string, string> = {};
 
     while (i < lines.length) {
@@ -137,11 +128,7 @@ export function parseFormMarkdown(markdown: string): FormSchema {
         const value = kv.slice(1).join(":").trim();
         attrs[key] = value;
       } else if (trimmed.length > 0) {
-        if (type === "todo-list" && /^\|.+\|$/.test(trimmed)) {
-          tableLines.push(trimmed);
-        } else {
-          desc.push(trimmed);
-        }
+        desc.push(trimmed);
       }
       i += 1;
     }
@@ -159,10 +146,6 @@ export function parseFormMarkdown(markdown: string): FormSchema {
       max: attrs.max ? Number(attrs.max) : undefined,
       step: attrs.step ? Number(attrs.step) : undefined,
     };
-
-    if (type === "todo-list" && tableLines.length > 0) {
-      field.rows = parseTodoListTable(tableLines);
-    }
 
     normalizeScale(field);
     fields.push(field);
@@ -209,7 +192,7 @@ export function validateFormData(
 
   schema.fields.forEach((field) => {
     if (onlyFields && !onlyFields.has(field.name)) return;
-    if (field.type === "info" || field.type === "todo-list") return;
+    if (field.type === "info") return;
     const value = data[field.name];
     if (field.required) {
       if (field.type === "checkbox") {
@@ -261,27 +244,6 @@ function slugify(value: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "");
-}
-
-function parseTodoListTable(tableLines: string[]): TodoListRow[] {
-  const rows: TodoListRow[] = [];
-  let skippedHeader = false;
-  for (const line of tableLines) {
-    const cells = line
-      .split("|")
-      .map((s) => s.trim())
-      .slice(1, -1);
-    if (cells.length === 0) continue;
-    const isSeparator = cells.every((c) => /^-+$/.test(c));
-    if (isSeparator) continue;
-    if (!skippedHeader) {
-      skippedHeader = true;
-      continue;
-    }
-    const id = cells[0] ?? String(rows.length);
-    rows.push({ id, cells });
-  }
-  return rows;
 }
 
 function normalizeScale(field: FormField): void {

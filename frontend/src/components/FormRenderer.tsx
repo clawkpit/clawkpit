@@ -191,30 +191,6 @@ function FieldRender({
     );
   }
 
-  if (field.type === "todo-list" && field.rows?.length) {
-    return (
-      <div className="space-y-1.5">
-        <Label>{field.label}</Label>
-        {field.description && <p className="text-xs text-muted-foreground">{field.description}</p>}
-        <div className="overflow-x-auto rounded-md border border-border">
-          <table className="w-full text-sm">
-            <tbody>
-              {field.rows.map((row) => (
-                <tr key={row.id} className="border-b border-border last:border-0">
-                  {row.cells.map((cell, ci) => (
-                    <td key={ci} className="px-2 py-1.5">
-                      {cell}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-1.5">
       <Label htmlFor={id}>{field.label}</Label>

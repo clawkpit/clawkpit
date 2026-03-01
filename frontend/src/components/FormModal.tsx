@@ -89,7 +89,7 @@ export function FormModal({
     try {
       const response: Record<string, unknown> = {};
       schema.fields.forEach((f) => {
-        if (f.type === "info" || f.type === "todo-list") return;
+        if (f.type === "info") return;
         const v = values[f.name];
         if (v !== undefined) response[f.name] = v;
       });

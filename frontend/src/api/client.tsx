@@ -198,7 +198,7 @@ export interface ListItemsQuery {
   page?: number;
   pageSize?: number;
   tag?: ItemTag;
-  importance?: ItemImportance;
+  importance?: FilterState["importance"];
   createdBy?: FilterState["createdBy"];
   modifiedBy?: FilterState["modifiedBy"];
 }
