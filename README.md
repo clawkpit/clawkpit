@@ -59,8 +59,10 @@ Copy `.env.example` to `.env` and set values as needed.
 - **Items:** `GET /api/v1/items`, `POST /api/v1/items`, `GET /api/v1/items/:id`, `PATCH /api/v1/items/:id`, `POST /api/v1/items/batch`
 - **Actions:** `POST /api/v1/items/:id/done`, `POST /api/v1/items/:id/drop`
 - **Notes:** `POST /api/v1/items/:id/notes`, `GET /api/v1/items/:id/notes`, `PATCH /api/v1/notes/:noteId`
+- **Agent content:** `POST /api/agent/markdown`, `POST /api/agent/form`, `GET /api/markdown/:id`, `GET /api/forms/:id`, `POST /api/forms/:id/submit`
+- **Real-time:** WebSocket at `ws(s)://<host>/api/ws` (session cookie required); server pushes `items:changed` after mutations.
 
-Error responses use a unified envelope: `{ "error": { "code", "message", "details" } }`. Codes include `BAD_REQUEST`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `RATE_LIMITED`. Validation errors appear in `details`. See `skills/clawkpit/api.md` for a concise API reference (device flow, enums, shapes).
+Error responses use a unified envelope: `{ "error": { "code", "message", "details" } }`. Codes include `BAD_REQUEST`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `RATE_LIMITED`. Validation errors appear in `details`. See `skills/clawkpit/api.md` for a concise API reference (device flow, enums, shapes, actor inference).
 
 ## Tests and build
 

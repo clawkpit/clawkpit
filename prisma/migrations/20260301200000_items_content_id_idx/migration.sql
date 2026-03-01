@@ -1,2 +1,3 @@
--- CreateIndex
-CREATE INDEX "items_user_id_content_id_idx" ON "items"("user_id", "content_id");
+-- No-op.
+-- The SQLite table redefinition in 20260301165944_add_has_ai_changes already
+-- recreates this index, so creating it again fails on a fresh reset.

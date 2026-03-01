@@ -8,6 +8,8 @@ Base URL: use `CLAWKPIT_BASE_URL` from environment or config (e.g. `https://your
 - Token is obtained via the **device flow** (`/clawkpit connect`) and stored by the skill, or from env `CLAWKPIT_API_TOKEN` or OpenClaw config `skills.entries.clawkpit.env.CLAWKPIT_API_TOKEN`.
 - Never log or echo the token.
 
+**Actor inference:** When using an API key, if you omit `createdBy`, `modifiedBy`, `author`, or `actor` in a request, the server defaults them to `"AI"`. When using a session (browser), they default to `"User"`. You can still send the field explicitly to override.
+
 ## Device flow (connect without pasting secrets)
 
 No auth for start and poll; confirm requires a **logged-in session** (cookie).
@@ -54,6 +56,19 @@ Enums: **urgency** DoNow | DoToday | DoThisWeek | DoLater | Unclear; **tag** ToR
 | POST | `/api/v1/items/:id/done` | `{ "actor": "User" \| "AI" }` | ToThinkAbout items require at least one note before marking done. |
 | POST | `/api/v1/items/:id/drop` | `{ "actor", "note?" }` | Item must have at least one note (add one if needed). |
 
+## Agent content push
+
+Push markdown or form content to a user's board. Uses upsert semantics: if `externalId` matches an existing record (or `contentHash` matches when no `externalId`), the content is updated and the existing item is returned.
+
+| Method | Path | Body | Response |
+|--------|------|------|----------|
+| POST | `/api/agent/markdown` | `{ "title?", "markdown" (required, max 100k), "externalId?" }` | 201 + `{ "markdownId", "itemId" }`. Creates a ToRead item linked to the content. |
+| GET | `/api/markdown/:id` | — | `{ "id", "title", "markdown", "createdAt" }` or 404. Only the owning user can access. |
+| POST | `/api/agent/form` | `{ "title?", "formMarkdown" (required, max 100k), "externalId?" }` | 201 + `{ "formId", "itemId" }`. Creates a ToDo item linked to the form. |
+| GET | `/api/forms/:id` | — | `{ "id", "title", "formMarkdown", "createdAt" }` or 404. Only the owning user can access. |
+| POST | `/api/forms/:id/submit` | `{ "itemId?", "response": { ... } }` | 201 + `{ "id" }`. Saves the response and marks the linked item as Done. |
+| GET | `/api/agent/forms/:id/responses` | — | `{ "responses": [ ... ] }`. Only the owning user can access. |
+
 ## Real-time updates (WebSocket)
 
 Browser clients can connect to `ws(s)://<host>/api/ws` (session cookie required). The server sends `{ "type": "items:changed" }` after every item mutation (create, update, notes, done, drop, agent push). No messages are expected from the client. The connection is per-user; only events for the authenticated user's board are delivered.
@@ -68,4 +83,4 @@ Browser clients can connect to `ws(s)://<host>/api/ws` (session cookie required)
 
 ## Error responses
 
-Standard envelope: `{ "error": { "code", "message", "details" } }`. Codes include BAD_REQUEST, UNAUTHORIZED, FORBIDDEN, NOT_FOUND, RATE_LIMITED.
+Standard envelope: `{ "error": { "code", "message", "details" } }`. Codes include BAD_REQUEST, UNAUTHORIZED, FORBIDDEN, NOT_FOUND, RATE_LIMITED, INTERNAL_ERROR.
