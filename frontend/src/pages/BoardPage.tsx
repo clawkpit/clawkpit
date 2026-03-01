@@ -34,6 +34,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useMinuteTick } from "@/hooks/useMinuteTick";
+import { useBoardSocket } from "@/hooks/useBoardSocket";
 
 type ViewMode = "urgency" | "tag";
 
@@ -72,26 +73,33 @@ export function BoardPage() {
   const [openclawModalCopiedStep, setOpenclawModalCopiedStep] = useState<number | null>(null);
   const [contentModal, setContentModal] = useState<{ type: "markdown" | "form"; contentId: string; itemId: string } | null>(null);
 
+  /** Fetch items silently (no loading spinner). Used by socket events and post-mutation refreshes. */
+  const fetchItems = useCallback(async () => {
+    const res = await listItems({
+      status: "Active",
+      page: 1,
+      pageSize: 100,
+      importance: filters.importance !== "All" ? filters.importance : undefined,
+      createdBy: filters.createdBy !== "All" ? filters.createdBy : undefined,
+      modifiedBy: filters.modifiedBy !== "All" ? filters.modifiedBy : undefined,
+    });
+    setItems(res.items);
+  }, [filters.importance, filters.createdBy, filters.modifiedBy]);
+
   const loadItems = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await listItems({
-        status: "Active",
-        page: 1,
-        pageSize: 100,
-        importance: filters.importance !== "All" ? filters.importance : undefined,
-        createdBy: filters.createdBy !== "All" ? filters.createdBy : undefined,
-        modifiedBy: filters.modifiedBy !== "All" ? filters.modifiedBy : undefined,
-      });
-      setItems(res.items);
+      await fetchItems();
     } finally {
       setLoading(false);
     }
-  }, [filters.importance, filters.createdBy, filters.modifiedBy]);
+  }, [fetchItems]);
 
   useEffect(() => {
     loadItems();
   }, [loadItems]);
+
+  useBoardSocket(fetchItems, !!user);
 
   useEffect(() => {
     if (!user || typeof window === "undefined") return;
@@ -156,7 +164,7 @@ export function BoardPage() {
       createdBy: "User",
     });
     handleClosePanel();
-    loadItems();
+    fetchItems();
   };
 
   const handleUpdate = async (itemId: string, updates: Partial<Item>) => {
@@ -172,14 +180,14 @@ export function BoardPage() {
       await updateItem(item.id, { tag: targetColumn as ItemTag });
     }
     setDraggedItem(null);
-    loadItems();
+    fetchItems();
   };
 
   const handleMarkDone = async (itemId: string) => {
     try {
       await markDone(itemId);
       handleClosePanel();
-      loadItems();
+      fetchItems();
     } catch (e) {
       // Error shown in panel via validation
     }
@@ -189,7 +197,7 @@ export function BoardPage() {
     try {
       await dropItem(itemId);
       handleClosePanel();
-      loadItems();
+      fetchItems();
     } catch (e) {
       // Error shown in panel
     }
@@ -243,7 +251,7 @@ export function BoardPage() {
 
   const handleContentModalClose = () => {
     setContentModal(null);
-    loadItems();
+    fetchItems();
   };
 
   return (

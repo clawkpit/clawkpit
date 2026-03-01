@@ -48,6 +48,7 @@ import {
   upsertMarkdown
 } from "../services/agentContentService";
 import { addNote, createItem, dropItem, getItem, listItems, listNotes, markDone, patchItem, updateNote } from "../services/itemService";
+import { broadcastToUser } from "../services/boardBroadcast";
 import { sendApiError, ApiErrorCode } from "../services/apiError";
 import {
   canSendMagicLinkEmail,
@@ -260,6 +261,7 @@ api.post("/agent/markdown", async (req, res) => {
   if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
   try {
     const result = await upsertMarkdown((req as any).user.id, parsed.data);
+    broadcastToUser((req as any).user.id, { type: "items:changed" });
     return res.status(201).json(result);
   } catch (e: any) {
     return sendApiError(res, 500, ApiErrorCode.INTERNAL_ERROR, e.message ?? "Failed to upsert markdown");
@@ -281,6 +283,7 @@ api.post("/agent/form", async (req, res) => {
   if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
   try {
     const result = await upsertForm((req as any).user.id, parsed.data);
+    broadcastToUser((req as any).user.id, { type: "items:changed" });
     return res.status(201).json(result);
   } catch (e: any) {
     return sendApiError(res, 500, ApiErrorCode.INTERNAL_ERROR, e.message ?? "Failed to upsert form");
@@ -308,6 +311,7 @@ api.post("/forms/:id/submit", async (req, res) => {
       parsed.data.itemId,
       parsed.data.response as Record<string, unknown>
     );
+    broadcastToUser((req as any).user.id, { type: "items:changed" });
     return res.status(201).json({ id: responseId });
   } catch (e: any) {
     if (e.message === "NOT_FOUND") return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found");
@@ -333,6 +337,7 @@ api.post("/v1/items", async (req, res) => {
   const parsed = createItemSchema.safeParse(req.body);
   if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
   const item = await createItem((req as any).user.id, parsed.data);
+  broadcastToUser((req as any).user.id, { type: "items:changed" });
   return res.status(201).json(item);
 });
 
@@ -358,6 +363,7 @@ api.patch("/v1/items/:id", async (req, res) => {
   if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
   const item = await patchItem((req as any).user.id, idParsed.data, parsed.data);
   if (!item) return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found");
+  broadcastToUser((req as any).user.id, { type: "items:changed" });
   return res.json(item);
 });
 
@@ -375,6 +381,7 @@ api.post("/v1/items/batch", async (req, res) => {
       return item ? { ok: true as const, item } : { ok: false as const, error: "Not found" };
     })
   );
+  broadcastToUser(userId, { type: "items:changed" });
   res.json({ results });
 });
 
@@ -383,8 +390,11 @@ api.post("/v1/items/:id/notes", async (req, res) => {
   if (!idParsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Invalid ID format");
   const parsed = createNoteSchema.safeParse(req.body);
   if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
-  try { const note = await addNote((req as any).user.id, idParsed.data, parsed.data); return res.status(201).json(note); }
-  catch { return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found"); }
+  try {
+    const note = await addNote((req as any).user.id, idParsed.data, parsed.data);
+    broadcastToUser((req as any).user.id, { type: "items:changed" });
+    return res.status(201).json(note);
+  } catch { return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found"); }
 });
 
 api.get("/v1/items/:id/notes", async (req, res) => {
@@ -399,8 +409,11 @@ api.patch("/v1/notes/:noteId", async (req, res) => {
   if (!noteIdParsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Invalid ID format");
   const parsed = patchNoteSchema.safeParse(req.body);
   if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
-  try { const note = await updateNote((req as any).user.id, noteIdParsed.data, parsed.data.actor, parsed.data.content); return res.json(note); }
-  catch (e: any) {
+  try {
+    const note = await updateNote((req as any).user.id, noteIdParsed.data, parsed.data.actor, parsed.data.content);
+    broadcastToUser((req as any).user.id, { type: "items:changed" });
+    return res.json(note);
+  } catch (e: any) {
     if (e.message === "AI_EDIT_FORBIDDEN") return sendApiError(res, 403, ApiErrorCode.FORBIDDEN, "AI cannot edit existing notes");
     return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found");
   }
@@ -411,8 +424,11 @@ api.post("/v1/items/:id/done", async (req, res) => {
   if (!idParsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Invalid ID format");
   const parsed = doneSchema.safeParse(req.body);
   if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
-  try { const item = await markDone((req as any).user.id, idParsed.data, parsed.data.actor); return res.json(item); }
-  catch (e: any) {
+  try {
+    const item = await markDone((req as any).user.id, idParsed.data, parsed.data.actor);
+    broadcastToUser((req as any).user.id, { type: "items:changed" });
+    return res.json(item);
+  } catch (e: any) {
     if (e.message === "DONE_NOTE_REQUIRED") return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Add a note with your reflection before marking this item done.");
     return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found");
   }
@@ -423,8 +439,11 @@ api.post("/v1/items/:id/drop", async (req, res) => {
   if (!idParsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Invalid ID format");
   const parsed = dropSchema.safeParse(req.body);
   if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
-  try { const item = await dropItem((req as any).user.id, idParsed.data, parsed.data.actor, parsed.data.note); return res.json(item); }
-  catch (e: any) {
+  try {
+    const item = await dropItem((req as any).user.id, idParsed.data, parsed.data.actor, parsed.data.note);
+    broadcastToUser((req as any).user.id, { type: "items:changed" });
+    return res.json(item);
+  } catch (e: any) {
     if (e.message === "DROP_NOTE_REQUIRED") return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Add a short note explaining why you are dropping this item.");
     return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found");
   }
