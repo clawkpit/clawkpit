@@ -1,0 +1,3 @@
+-- No-op.
+-- The SQLite table redefinition in 20260301165944_add_has_ai_changes already
+-- recreates this index, so creating it again fails on a fresh reset.

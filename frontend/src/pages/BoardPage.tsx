@@ -5,6 +5,8 @@ import { Board } from "@/components/board/Board";
 import { BoardFilters } from "@/components/board/Filters";
 import { DetailPanel } from "@/components/DetailPanel";
 import { EmptyState } from "@/components/EmptyState";
+import { FormModal } from "@/components/FormModal";
+import { MarkdownModal } from "@/components/MarkdownModal";
 import { SettingsPanel } from "@/components/SettingsPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +34,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useMinuteTick } from "@/hooks/useMinuteTick";
+import { useBoardSocket } from "@/hooks/useBoardSocket";
 
 type ViewMode = "urgency" | "tag";
 
@@ -68,27 +71,35 @@ export function BoardPage() {
   const [openclawModalLoading, setOpenclawModalLoading] = useState(false);
   const [openclawModalError, setOpenclawModalError] = useState<string | null>(null);
   const [openclawModalCopiedStep, setOpenclawModalCopiedStep] = useState<number | null>(null);
+  const [contentModal, setContentModal] = useState<{ type: "markdown" | "form"; contentId: string; itemId: string } | null>(null);
+
+  /** Fetch items silently (no loading spinner). Used by socket events and post-mutation refreshes. */
+  const fetchItems = useCallback(async () => {
+    const res = await listItems({
+      status: "Active",
+      page: 1,
+      pageSize: 100,
+      importance: filters.importance !== "All" ? filters.importance : undefined,
+      createdBy: filters.createdBy !== "All" ? filters.createdBy : undefined,
+      modifiedBy: filters.modifiedBy !== "All" ? filters.modifiedBy : undefined,
+    });
+    setItems(res.items);
+  }, [filters.importance, filters.createdBy, filters.modifiedBy]);
 
   const loadItems = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await listItems({
-        status: "Active",
-        page: 1,
-        pageSize: 100,
-        importance: filters.importance !== "All" ? filters.importance : undefined,
-        createdBy: filters.createdBy !== "All" ? filters.createdBy : undefined,
-        modifiedBy: filters.modifiedBy !== "All" ? filters.modifiedBy : undefined,
-      });
-      setItems(res.items);
+      await fetchItems();
     } finally {
       setLoading(false);
     }
-  }, [filters.importance, filters.createdBy, filters.modifiedBy]);
+  }, [fetchItems]);
 
   useEffect(() => {
     loadItems();
   }, [loadItems]);
+
+  useBoardSocket(fetchItems, !!user);
 
   useEffect(() => {
     if (!user || typeof window === "undefined") return;
@@ -117,6 +128,12 @@ export function BoardPage() {
     setSelectedItem(item);
     setIsCreate(false);
     setIsPanelOpen(true);
+    if (item.hasAIChanges) {
+      updateItem(item.id, { hasAIChanges: false }).catch(() => {});
+      const cleared = { ...item, hasAIChanges: false };
+      setSelectedItem(cleared);
+      setItems((prev) => prev.map((i) => (i.id === item.id ? cleared : i)));
+    }
     try {
       const notes = await listNotes(item.id);
       setPanelNotes(notes);
@@ -153,7 +170,7 @@ export function BoardPage() {
       createdBy: "User",
     });
     handleClosePanel();
-    loadItems();
+    fetchItems();
   };
 
   const handleUpdate = async (itemId: string, updates: Partial<Item>) => {
@@ -169,14 +186,14 @@ export function BoardPage() {
       await updateItem(item.id, { tag: targetColumn as ItemTag });
     }
     setDraggedItem(null);
-    loadItems();
+    fetchItems();
   };
 
   const handleMarkDone = async (itemId: string) => {
     try {
       await markDone(itemId);
       handleClosePanel();
-      loadItems();
+      fetchItems();
     } catch (e) {
       // Error shown in panel via validation
     }
@@ -186,7 +203,7 @@ export function BoardPage() {
     try {
       await dropItem(itemId);
       handleClosePanel();
-      loadItems();
+      fetchItems();
     } catch (e) {
       // Error shown in panel
     }
@@ -232,6 +249,15 @@ export function BoardPage() {
     } catch {
       // ignore
     }
+  };
+
+  const handleContentAction = (type: "markdown" | "form", item: Item) => {
+    if (item.contentId) setContentModal({ type, contentId: item.contentId, itemId: item.id });
+  };
+
+  const handleContentModalClose = () => {
+    setContentModal(null);
+    fetchItems();
   };
 
   return (
@@ -306,6 +332,7 @@ export function BoardPage() {
             draggedItem={draggedItem}
             onDragStart={setDraggedItem}
             onDragEnd={() => setDraggedItem(null)}
+            onAction={handleContentAction}
           />
         )}
       </div>
@@ -321,6 +348,21 @@ export function BoardPage() {
         onDrop={handleDrop}
         onAddNote={handleAddNote}
         onEditNote={handleEditNote}
+        onContentAction={handleContentAction}
+      />
+      <MarkdownModal
+        open={contentModal?.type === "markdown"}
+        onOpenChange={(open) => !open && setContentModal(null)}
+        contentId={contentModal?.type === "markdown" ? contentModal.contentId : null}
+        itemId={contentModal?.type === "markdown" ? contentModal.itemId ?? null : null}
+        onMarkRead={handleContentModalClose}
+      />
+      <FormModal
+        open={contentModal?.type === "form"}
+        onOpenChange={(open) => !open && setContentModal(null)}
+        contentId={contentModal?.type === "form" ? contentModal.contentId : null}
+        itemId={contentModal?.type === "form" ? contentModal.itemId ?? null : null}
+        onSubmit={handleContentModalClose}
       />
       <SettingsPanel
         isOpen={isSettingsOpen}

@@ -2,6 +2,8 @@
 
 **The Cockpit for your Claw.**
 
+Use it at **[clawkpit.com](https://clawkpit.com)** if you don’t want to self-host, or run your own instance below.
+
 Clawkpit is an AI-managed Kanban board: urgency-driven columns (Do Now, Do Today, Do This Week, Do Later, Unclear), single tag per item (To Read, To Think About, To Use, To Do), notes, and done/drop rules. It’s designed **local-first** and **privacy-friendly**—self-host or run a single instance; magic-link auth and API keys; no passwords. Your AI agent (e.g. OpenClaw) can manage tasks via the API while you stay in control in the web UI.
 
 ## Quick start
@@ -59,8 +61,10 @@ Copy `.env.example` to `.env` and set values as needed.
 - **Items:** `GET /api/v1/items`, `POST /api/v1/items`, `GET /api/v1/items/:id`, `PATCH /api/v1/items/:id`, `POST /api/v1/items/batch`
 - **Actions:** `POST /api/v1/items/:id/done`, `POST /api/v1/items/:id/drop`
 - **Notes:** `POST /api/v1/items/:id/notes`, `GET /api/v1/items/:id/notes`, `PATCH /api/v1/notes/:noteId`
+- **Agent content:** `POST /api/agent/markdown`, `POST /api/agent/form`, `GET /api/markdown/:id`, `GET /api/forms/:id`, `POST /api/forms/:id/submit`
+- **Real-time:** WebSocket at `ws(s)://<host>/api/ws` (session cookie required); server pushes `items:changed` after mutations.
 
-Error responses use a unified envelope: `{ "error": { "code", "message", "details" } }`. Codes include `BAD_REQUEST`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `RATE_LIMITED`. Validation errors appear in `details`. See `skills/clawkpit/api.md` for a concise API reference (device flow, enums, shapes).
+Error responses use a unified envelope: `{ "error": { "code", "message", "details" } }`. Codes include `BAD_REQUEST`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `RATE_LIMITED`. Validation errors appear in `details`. See `skills/clawkpit/api.md` for a concise API reference (device flow, enums, shapes, actor inference).
 
 ## Tests and build
 

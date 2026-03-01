@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import type { Item, ItemColumn, ItemTag, FilterState } from "@/types/items";
+import type { Item, ItemColumn, ItemTag, FilterState, ItemContentType } from "@/types/items";
 import { getItemsByColumn, getItemsByTag, COLUMNS_URGENCY, COLUMNS_TAG } from "@/types/items";
 import { BoardColumn } from "./Column";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ interface BoardProps {
   draggedItem?: Item | null;
   onDragStart?: (item: Item) => void;
   onDragEnd?: () => void;
+  onAction?: (type: ItemContentType, item: Item) => void;
 }
 
 export function Board({
@@ -27,6 +28,7 @@ export function Board({
   draggedItem,
   onDragStart,
   onDragEnd,
+  onAction,
 }: BoardProps) {
   const [currentColumnIndex, setCurrentColumnIndex] = useState(0);
   const [collapsedColumns, setCollapsedColumns] = useState<Set<string>>(new Set());
@@ -136,6 +138,7 @@ export function Board({
               draggedItem={draggedItem}
               onDragStart={onDragStart}
               onDragEnd={onDragEnd}
+              onAction={onAction}
             />
           );
         })}
@@ -167,6 +170,7 @@ export function Board({
           items={getColumnItems(columns[currentColumnIndex].key)}
           viewMode={viewMode}
           onItemClick={onItemClick}
+          onAction={onAction}
           className="w-full"
         />
       </div>

@@ -1,6 +1,8 @@
-import type { Item, ItemColumn } from "@/types/items";
+import type { Item, ItemColumn, ItemContentType } from "@/types/items";
 import { formatRelativeTime, formatDeadline, COLUMNS_URGENCY } from "@/types/items";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { BookOpenIcon, ClipboardListIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface BoardCardProps {
@@ -11,13 +13,15 @@ interface BoardCardProps {
   onDragStart?: (item: Item) => void;
   onDragEnd?: () => void;
   isDragging?: boolean;
+  /** When user clicks Read/Open Form on an item with contentId. */
+  onAction?: (type: ItemContentType, item: Item) => void;
 }
 
 const URGENCY_TITLE: Record<ItemColumn, string> = Object.fromEntries(
   COLUMNS_URGENCY.map((c) => [c.key, c.title])
 ) as Record<ItemColumn, string>;
 
-export function BoardCard({ item, viewMode = "urgency", onClick, onDragStart, onDragEnd, isDragging }: BoardCardProps) {
+export function BoardCard({ item, viewMode = "urgency", onClick, onDragStart, onDragEnd, isDragging, onAction }: BoardCardProps) {
   const isUrgent = item.deadline && item.deadline.getTime() - Date.now() < 24 * 60 * 60 * 1000;
   const isOverdue = item.deadline && item.deadline.getTime() < Date.now();
 
@@ -86,6 +90,29 @@ export function BoardCard({ item, viewMode = "urgency", onClick, onDragStart, on
           </span>
         )}
         <div className="flex-1" />
+        {item.contentId && item.contentType && onAction && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-1.5 text-[11px] text-muted-foreground hover:text-foreground"
+            onClick={(e) => {
+              e.stopPropagation();
+              onAction(item.contentType!, item);
+            }}
+          >
+            {item.contentType === "markdown" ? (
+              <>
+                <BookOpenIcon className="w-3 h-3 mr-1" />
+                Read
+              </>
+            ) : (
+              <>
+                <ClipboardListIcon className="w-3 h-3 mr-1" />
+                Open Form
+              </>
+            )}
+          </Button>
+        )}
         <span className="text-[11px] text-muted-foreground/70">{formatRelativeTime(item.modifiedAt)}</span>
       </div>
     </div>

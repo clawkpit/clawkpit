@@ -27,7 +27,8 @@ export const updateItemSchema = z.object({
   deadline: z.string().datetime().nullable().optional(),
   status: status.optional(),
   openedAt: z.string().datetime().optional(),
-  modifiedBy: actor.default("User")
+  modifiedBy: actor.optional(),
+  hasAIChanges: z.boolean().optional(),
 }).refine((v) => Object.keys(v).length > 0, "No fields provided");
 
 export const listItemsQuerySchema = z.object({
@@ -94,6 +95,23 @@ export const openclawDeviceConfirmSchema = z.object({
 
 export const openclawDevicePollSchema = z.object({
   device_code: z.string().min(1)
+});
+
+export const agentMarkdownSchema = z.object({
+  title: z.string().max(500).optional(),
+  markdown: z.string().min(1).max(100000),
+  externalId: z.string().max(255).optional()
+});
+
+export const agentFormSchema = z.object({
+  title: z.string().max(500).optional(),
+  formMarkdown: z.string().min(1).max(100000),
+  externalId: z.string().max(255).optional()
+});
+
+export const submitFormResponseSchema = z.object({
+  itemId: z.string().uuid().optional(),
+  response: z.record(z.string(), z.any())
 });
 
 /** Reusable UUID for route params (e.g. item id, note id, api key id). */

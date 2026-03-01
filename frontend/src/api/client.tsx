@@ -170,7 +170,9 @@ function mapItem(raw: {
   updatedAt: string;
   createdBy: string;
   modifiedBy: string;
-  hasAIChanges?: boolean;
+  hasAIChanges: boolean;
+  contentId?: string | null;
+  contentType?: string | null;
 }): Item {
   return {
     id: raw.id,
@@ -185,7 +187,9 @@ function mapItem(raw: {
     createdBy: raw.createdBy as Item["createdBy"],
     modifiedBy: raw.modifiedBy as Item["modifiedBy"],
     modifiedAt: new Date(raw.updatedAt),
-    hasAIChanges: raw.hasAIChanges ?? false,
+    hasAIChanges: raw.hasAIChanges,
+    contentId: raw.contentId ?? undefined,
+    contentType: (raw.contentType as Item["contentType"]) ?? undefined,
   };
 }
 
@@ -194,7 +198,7 @@ export interface ListItemsQuery {
   page?: number;
   pageSize?: number;
   tag?: ItemTag;
-  importance?: ItemImportance;
+  importance?: FilterState["importance"];
   createdBy?: FilterState["createdBy"];
   modifiedBy?: FilterState["modifiedBy"];
 }
@@ -255,6 +259,7 @@ export interface UpdateItemPayload {
   deadline?: Date | null;
   status?: Item["status"];
   modifiedBy?: Item["modifiedBy"];
+  hasAIChanges?: boolean;
 }
 
 export async function updateItem(id: string, payload: UpdateItemPayload): Promise<Item> {
@@ -267,6 +272,7 @@ export async function updateItem(id: string, payload: UpdateItemPayload): Promis
   if (payload.deadline !== undefined) body.deadline = payload.deadline ? payload.deadline.toISOString() : null;
   if (payload.status !== undefined) body.status = payload.status;
   if (payload.modifiedBy !== undefined) body.modifiedBy = payload.modifiedBy;
+  if (payload.hasAIChanges !== undefined) body.hasAIChanges = payload.hasAIChanges;
   const raw = await apiFetch<Parameters<typeof mapItem>[0]>(`/v1/items/${id}`, {
     method: "PATCH",
     body: JSON.stringify(body),
@@ -311,4 +317,50 @@ export async function dropItem(itemId: string, actor: Item["modifiedBy"] = "User
     body: JSON.stringify({ actor, note }),
   });
   return mapItem(raw);
+}
+
+export interface MarkdownContent {
+  id: string;
+  title: string | null;
+  markdown: string;
+  createdAt: string;
+}
+
+export async function getMarkdownContent(id: string): Promise<MarkdownContent> {
+  return apiFetch<MarkdownContent>(`/markdown/${id}`);
+}
+
+export interface FormContent {
+  id: string;
+  title: string | null;
+  formMarkdown: string;
+  createdAt: string;
+}
+
+export async function getFormContent(id: string): Promise<FormContent> {
+  return apiFetch<FormContent>(`/forms/${id}`);
+}
+
+export interface FormResponseRecord {
+  id: string;
+  userId: string;
+  contentId: string;
+  itemId: string | null;
+  response: Record<string, unknown>;
+  createdAt: string;
+}
+
+export async function getFormResponses(id: string): Promise<FormResponseRecord[]> {
+  const data = await apiFetch<{ responses?: FormResponseRecord[] }>(`/agent/forms/${id}/responses`);
+  return Array.isArray(data.responses) ? data.responses : [];
+}
+
+export async function submitFormResponse(
+  formId: string,
+  payload: { itemId?: string; response: Record<string, unknown> }
+): Promise<{ id: string }> {
+  return apiFetch<{ id: string }>(`/forms/${formId}/submit`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }

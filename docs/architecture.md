@@ -16,10 +16,10 @@ Clawkpit is a **single-user or single-tenant**, **AI-managed Kanban board**:
 | Path | Purpose |
 |------|--------|
 | `src/` | Backend: Express app, API routes, services, DB client. |
-| `src/server.ts` | Entry point: runs migrations (dev), creates app, starts HTTP server. |
+| `src/server.ts` | Entry point: runs migrations (dev), creates app, starts HTTP server; handles WebSocket upgrade on `/api/ws` (session auth). |
 | `src/app.ts` | Express app: helmet, CORS (origin from `CORS_ORIGIN`, credentials enabled), body limit, cookie parser, `/api` router, static frontend. |
 | `src/routes/api.ts` | All API route handlers; auth middleware; uses services and validation. |
-| `src/services/` | Business logic: auth, items, notes, API keys, email, rate limiting, OpenClaw device flow, validation, error helpers. |
+| `src/services/` | Business logic: auth, items, notes, API keys, email, rate limiting, OpenClaw device flow, agent content (markdown/form), board broadcast (WebSocket), validation, error helpers. |
 | `src/db/prisma.ts` | Prisma client and dev migration runner. |
 | `src/domain/types.ts` | Shared enums (urgency, tag, importance, status, actor). |
 | `prisma/` | Schema (SQLite for dev, `pg/` for production), migrations. |
@@ -31,12 +31,14 @@ Clawkpit is a **single-user or single-tenant**, **AI-managed Kanban board**:
 ## Data model
 
 - **users**: id (UUID), email, name, is_active, created_at, updated_at.
-- **items**: id (UUID), human_id (per-user increment), user_id, title, description, urgency, tag, importance, deadline, status (Active/Done/Dropped), created_by, modified_by, opened_at, created_at, updated_at. Unique (user_id, human_id).
+- **items**: id (UUID), human_id (per-user increment), user_id, title, description, urgency, tag, importance, deadline, status (Active/Done/Dropped), created_by, modified_by, has_ai_changes (boolean), content_id (nullable, FK to agent_content), opened_at, created_at, updated_at. Unique (user_id, human_id).
 - **notes**: id (UUID), item_id, author (User|AI), content, created_at, updated_at.
 - **user_counters**: user_id, next_human_id (for allocating human_id).
+- **agent_content**: id (UUID), user_id, type (markdown|form), title, body, external_id, content_hash, created_at, updated_at. Used for agent-pushed markdown and forms; items may link via content_id.
+- **form_responses**: id (UUID), user_id, content_id, item_id (nullable), response (JSON), created_at.
 - **sessions**, **magic_links**, **api_keys** (hashed), **openclaw_device**, **email_change_requests**: auth and device-flow tables.
 
-Indexes support list queries by (user_id, status, urgency), (user_id, deadline), (user_id, updated_at), and notes by (item_id, created_at).
+Indexes support list queries by (user_id, status, urgency), (user_id, deadline), (user_id, updated_at), and notes by (item_id, created_at). `has_ai_changes` is set when the AI creates or modifies an item (or adds a note); cleared when the user opens the item or makes a change. The UI uses it to show an “AI changed this” indicator.
 
 ## API design
 
@@ -50,7 +52,12 @@ Indexes support list queries by (user_id, status, urgency), (user_id, deadline),
 - **Magic link**: User requests link via `POST /api/auth/request-link` (rate-limited per IP+email). Token is created, stored hashed, and sent by email in production (Resend) or returned in response in dev. User consumes token with `POST /api/auth/consume-link`; server sets session cookie.
 - **Session**: Cookie-based; httpOnly, 14-day maxAge. When `CORS_ORIGIN` is set (cross-origin), the session cookie uses `sameSite=none` and `secure=true` in production so the browser sends it on cross-origin requests; otherwise `sameSite=lax` and `secure` only in production. All protected routes resolve user from session or API key.
 - **API keys**: Created in Settings; stored hashed. Sent as `Authorization: Bearer <key>` or `X-API-Key`. Used for programmatic and AI access.
+- **Actor inference**: If the request does not explicitly send an actor field (`createdBy`, `modifiedBy`, `author`, or `actor`), the server infers it from the auth method: **API key** → `"AI"`, **session** → `"User"`. Callers can still override by sending the field. This keeps `has_ai_changes` and filters correct when the UI or an agent omits the actor.
 - **OpenClaw device flow**: `POST /api/openclaw/device/start` (no auth), `POST /api/openclaw/device/poll` (no auth, rate-limited), `POST /api/openclaw/device/confirm` (session required). User enters display code in Clawkpit Settings; agent receives API token via poll and stores it locally.
+
+## Real-time updates (WebSocket)
+
+The HTTP server handles WebSocket upgrades on the same port. Path `/api/ws` is the only upgrade target; others are closed. The client must send the session cookie; the server resolves the user from it and registers the connection in `src/services/boardBroadcast.ts`. After any item mutation (create, update, notes, done, drop, agent markdown/form), the server calls `broadcastToUser(userId, { type: "items:changed" })`. Browser clients (e.g. the board page) subscribe via the `useBoardSocket` hook and refetch the list when they receive the event, so the board updates without a full reload.
 
 ## Frontend architecture
 
@@ -61,7 +68,7 @@ Indexes support list queries by (user_id, status, urgency), (user_id, deadline),
 
 ## Where to find what
 
-- **Adding an API endpoint**: Add route in `src/routes/api.ts`, add or reuse schema in `src/services/validation.ts`, implement logic in `src/services/*.ts` (e.g. itemService, authService). Return with `sendApiError` on failure.
+- **Adding an API endpoint**: Add route in `src/routes/api.ts`, add or reuse schema in `src/services/validation.ts`, implement logic in `src/services/*.ts` (e.g. itemService, authService). Return with `sendApiError` on failure. If the endpoint mutates items (create, update, notes, done, drop, agent content), call `broadcastToUser(userId, { type: "items:changed" })` after the mutation so the board UI updates in real time.
 - **Changing the data model**: Edit `prisma/schema.sqlite.prisma` (and `prisma/pg/schema.prisma` if needed), run `npm run db:migrate:dev`, update services and types.
 - **Validation rules**: All in `src/services/validation.ts`. Use `uuidParam` for ID params; use existing or new Zod schemas for body/query.
 - **Rate limiting**: In-memory in `src/services/rateLimit.ts`; used for magic-link and OpenClaw flows. For multi-instance deployments, consider a shared store (e.g. Redis).

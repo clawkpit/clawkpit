@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Item, ItemColumn, ItemTag } from "@/types/items";
+import type { Item, ItemColumn, ItemTag, ItemContentType } from "@/types/items";
 import { BoardCard } from "./Card";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +17,8 @@ interface BoardColumnProps {
   draggedItem?: Item | null;
   onDragStart?: (item: Item) => void;
   onDragEnd?: () => void;
+  /** When user clicks Read/Open Form on an item with contentId. */
+  onAction?: (type: ItemContentType, item: Item) => void;
   className?: string;
 }
 
@@ -32,6 +34,7 @@ export function BoardColumn({
   draggedItem,
   onDragStart,
   onDragEnd,
+  onAction,
   className,
 }: BoardColumnProps) {
   const [isDragOver, setIsDragOver] = useState(false);
@@ -113,6 +116,7 @@ export function BoardColumn({
               onDragStart={onDragStart}
               onDragEnd={onDragEnd}
               isDragging={draggedItem?.id === item.id}
+              onAction={onAction}
             />
           ))}
           {items.length === 0 && (

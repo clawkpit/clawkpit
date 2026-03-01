@@ -1,5 +1,7 @@
 import { Router } from "express";
 import {
+  agentFormSchema,
+  agentMarkdownSchema,
   batchSchema,
   confirmEmailChangeSchema,
   consumeMagicLinkSchema,
@@ -14,6 +16,7 @@ import {
   openclawDeviceStartSchema,
   patchNoteSchema,
   requestMagicLinkSchema,
+  submitFormResponseSchema,
   updateItemSchema,
   updateMeSchema,
   uuidParam
@@ -37,7 +40,15 @@ import {
   consumeConfirmRateLimit,
   consumePollRateLimit
 } from "../services/openclawDeviceService";
+import {
+  getContent,
+  getFormResponses,
+  submitFormResponse,
+  upsertForm,
+  upsertMarkdown
+} from "../services/agentContentService";
 import { addNote, createItem, dropItem, getItem, listItems, listNotes, markDone, patchItem, updateNote } from "../services/itemService";
+import { broadcastToUser } from "../services/boardBroadcast";
 import { sendApiError, ApiErrorCode } from "../services/apiError";
 import {
   canSendMagicLinkEmail,
@@ -186,14 +197,22 @@ api.use(async (req, res, next) => {
     const user = await getUserByKey(token);
     if (user) {
       (req as any).user = user;
+      (req as any).authVia = "apikey";
       return next();
     }
   }
   const user = await getUserFromSession(req.cookies?.session);
   if (!user) return sendApiError(res, 401, ApiErrorCode.UNAUTHORIZED, "Unauthorized");
   (req as any).user = user;
+  (req as any).authVia = "session";
   next();
 });
+
+/** When the caller didn't explicitly provide the actor field, infer it from the auth method: API key → "AI", session → "User". */
+function inferActor(req: any, parsed: Record<string, unknown>, field: string): void {
+  if (field in (req.body ?? {})) return;
+  parsed[field] = req.authVia === "apikey" ? "AI" : "User";
+}
 
 api.get("/me", (req, res) => res.json({ user: (req as any).user }));
 
@@ -244,10 +263,90 @@ api.delete("/me/keys/:id", async (req, res) => {
   return res.status(204).send();
 });
 
+// Agent push: markdown (ToRead)
+api.post("/agent/markdown", async (req, res) => {
+  const parsed = agentMarkdownSchema.safeParse(req.body);
+  if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
+  try {
+    const result = await upsertMarkdown((req as any).user.id, parsed.data);
+    broadcastToUser((req as any).user.id, { type: "items:changed" });
+    return res.status(201).json(result);
+  } catch (e: any) {
+    return sendApiError(res, 500, ApiErrorCode.INTERNAL_ERROR, e.message ?? "Failed to upsert markdown");
+  }
+});
+
+api.get("/markdown/:id", async (req, res) => {
+  const idParsed = uuidParam.safeParse(req.params.id);
+  if (!idParsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Invalid ID format");
+  const content = await getContent((req as any).user.id, idParsed.data);
+  if (!content) return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found");
+  if (content.type !== "markdown") return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found");
+  return res.json({ id: content.id, title: content.title, markdown: content.body, createdAt: content.createdAt });
+});
+
+// Agent push: form (ToDo)
+api.post("/agent/form", async (req, res) => {
+  const parsed = agentFormSchema.safeParse(req.body);
+  if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
+  try {
+    const result = await upsertForm((req as any).user.id, parsed.data);
+    broadcastToUser((req as any).user.id, { type: "items:changed" });
+    return res.status(201).json(result);
+  } catch (e: any) {
+    return sendApiError(res, 500, ApiErrorCode.INTERNAL_ERROR, e.message ?? "Failed to upsert form");
+  }
+});
+
+api.get("/forms/:id", async (req, res) => {
+  const idParsed = uuidParam.safeParse(req.params.id);
+  if (!idParsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Invalid ID format");
+  const content = await getContent((req as any).user.id, idParsed.data);
+  if (!content) return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found");
+  if (content.type !== "form") return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found");
+  return res.json({ id: content.id, title: content.title, formMarkdown: content.body, createdAt: content.createdAt });
+});
+
+api.post("/forms/:id/submit", async (req, res) => {
+  const idParsed = uuidParam.safeParse(req.params.id);
+  if (!idParsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Invalid ID format");
+  const parsed = submitFormResponseSchema.safeParse(req.body);
+  if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
+  try {
+    const responseId = await submitFormResponse(
+      (req as any).user.id,
+      idParsed.data,
+      parsed.data.itemId,
+      parsed.data.response as Record<string, unknown>
+    );
+    broadcastToUser((req as any).user.id, { type: "items:changed" });
+    return res.status(201).json({ id: responseId });
+  } catch (e: any) {
+    if (e.message === "NOT_FOUND") return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found");
+    if (e.message === "NOT_A_FORM") return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Content is not a form");
+    const msg = typeof e?.message === "string" ? e.message : "Failed to submit";
+    return sendApiError(res, 500, ApiErrorCode.INTERNAL_ERROR, msg);
+  }
+});
+
+api.get("/agent/forms/:id/responses", async (req, res) => {
+  const idParsed = uuidParam.safeParse(req.params.id);
+  if (!idParsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Invalid ID format");
+  try {
+    const responses = await getFormResponses((req as any).user.id, idParsed.data);
+    return res.json({ responses });
+  } catch (e: any) {
+    if (e.message === "NOT_FOUND") return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found");
+    return sendApiError(res, 500, ApiErrorCode.INTERNAL_ERROR, e.message ?? "Failed to get responses");
+  }
+});
+
 api.post("/v1/items", async (req, res) => {
   const parsed = createItemSchema.safeParse(req.body);
   if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
+  inferActor(req, parsed.data, "createdBy");
   const item = await createItem((req as any).user.id, parsed.data);
+  broadcastToUser((req as any).user.id, { type: "items:changed" });
   return res.status(201).json(item);
 });
 
@@ -271,8 +370,11 @@ api.patch("/v1/items/:id", async (req, res) => {
   if (!idParsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Invalid ID format");
   const parsed = updateItemSchema.safeParse(req.body);
   if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
+  const hasSubstantiveFields = Object.keys(req.body ?? {}).some((k) => k !== "hasAIChanges");
+  if (hasSubstantiveFields) inferActor(req, parsed.data, "modifiedBy");
   const item = await patchItem((req as any).user.id, idParsed.data, parsed.data);
   if (!item) return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found");
+  broadcastToUser((req as any).user.id, { type: "items:changed" });
   return res.json(item);
 });
 
@@ -280,6 +382,13 @@ api.post("/v1/items/batch", async (req, res) => {
   const parsed = batchSchema.safeParse(req.body);
   if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
   const userId = (req as any).user.id;
+  const defaultActor = (req as any).authVia === "apikey" ? "AI" : "User";
+  const rawOps = Array.isArray(req.body) ? req.body : [];
+  parsed.data.forEach((op: any, i: number) => {
+    const rawPayload = rawOps[i]?.payload ?? {};
+    if (op.action === "create" && !("createdBy" in rawPayload)) op.payload.createdBy = defaultActor;
+    if (op.action === "update" && !("modifiedBy" in rawPayload)) op.payload.modifiedBy = defaultActor;
+  });
   const results = await Promise.all(
     parsed.data.map(async (op) => {
       if (op.action === "create") {
@@ -290,6 +399,7 @@ api.post("/v1/items/batch", async (req, res) => {
       return item ? { ok: true as const, item } : { ok: false as const, error: "Not found" };
     })
   );
+  broadcastToUser(userId, { type: "items:changed" });
   res.json({ results });
 });
 
@@ -298,8 +408,12 @@ api.post("/v1/items/:id/notes", async (req, res) => {
   if (!idParsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Invalid ID format");
   const parsed = createNoteSchema.safeParse(req.body);
   if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
-  try { const note = await addNote((req as any).user.id, idParsed.data, parsed.data); return res.status(201).json(note); }
-  catch { return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found"); }
+  inferActor(req, parsed.data, "author");
+  try {
+    const note = await addNote((req as any).user.id, idParsed.data, parsed.data);
+    broadcastToUser((req as any).user.id, { type: "items:changed" });
+    return res.status(201).json(note);
+  } catch { return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found"); }
 });
 
 api.get("/v1/items/:id/notes", async (req, res) => {
@@ -314,8 +428,12 @@ api.patch("/v1/notes/:noteId", async (req, res) => {
   if (!noteIdParsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Invalid ID format");
   const parsed = patchNoteSchema.safeParse(req.body);
   if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
-  try { const note = await updateNote((req as any).user.id, noteIdParsed.data, parsed.data.actor, parsed.data.content); return res.json(note); }
-  catch (e: any) {
+  inferActor(req, parsed.data, "actor");
+  try {
+    const note = await updateNote((req as any).user.id, noteIdParsed.data, parsed.data.actor, parsed.data.content);
+    broadcastToUser((req as any).user.id, { type: "items:changed" });
+    return res.json(note);
+  } catch (e: any) {
     if (e.message === "AI_EDIT_FORBIDDEN") return sendApiError(res, 403, ApiErrorCode.FORBIDDEN, "AI cannot edit existing notes");
     return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found");
   }
@@ -326,8 +444,12 @@ api.post("/v1/items/:id/done", async (req, res) => {
   if (!idParsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Invalid ID format");
   const parsed = doneSchema.safeParse(req.body);
   if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
-  try { const item = await markDone((req as any).user.id, idParsed.data, parsed.data.actor); return res.json(item); }
-  catch (e: any) {
+  inferActor(req, parsed.data, "actor");
+  try {
+    const item = await markDone((req as any).user.id, idParsed.data, parsed.data.actor);
+    broadcastToUser((req as any).user.id, { type: "items:changed" });
+    return res.json(item);
+  } catch (e: any) {
     if (e.message === "DONE_NOTE_REQUIRED") return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Add a note with your reflection before marking this item done.");
     return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found");
   }
@@ -338,8 +460,12 @@ api.post("/v1/items/:id/drop", async (req, res) => {
   if (!idParsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Invalid ID format");
   const parsed = dropSchema.safeParse(req.body);
   if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
-  try { const item = await dropItem((req as any).user.id, idParsed.data, parsed.data.actor, parsed.data.note); return res.json(item); }
-  catch (e: any) {
+  inferActor(req, parsed.data, "actor");
+  try {
+    const item = await dropItem((req as any).user.id, idParsed.data, parsed.data.actor, parsed.data.note);
+    broadcastToUser((req as any).user.id, { type: "items:changed" });
+    return res.json(item);
+  } catch (e: any) {
     if (e.message === "DROP_NOTE_REQUIRED") return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Add a short note explaining why you are dropping this item.");
     return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found");
   }
