@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   listItems,
-  getItem,
   createItem,
   updateItem,
   listNotes,
@@ -46,6 +45,10 @@ const DEFAULT_FILTERS: FilterState = {
 const APP_BASE_URL =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_APP_URL) ||
   (typeof window !== "undefined" ? window.location.origin : "");
+
+/** Base URL for the OpenClaw install page (openclaw.md). When the install page is on a different domain (e.g. landing at clawkpit.com, app at app.clawkpit.com), set VITE_OPENCLAW_DOCS_URL to the landing URL. */
+const OPENCLAW_DOCS_BASE_URL =
+  (typeof import.meta !== "undefined" && import.meta.env?.VITE_OPENCLAW_DOCS_URL) || APP_BASE_URL;
 
 export function BoardPage() {
   useMinuteTick(); // refresh time-left / overdue hints every minute
@@ -344,14 +347,14 @@ export function BoardPage() {
               </p>
               <button
                 type="button"
-                onClick={() => handleCopyOpenclawModalCommand(`Open ${APP_BASE_URL}/openclaw.md and follow the steps to install the Clawkpit skill.`, 1)}
+                onClick={() => handleCopyOpenclawModalCommand(`Open ${OPENCLAW_DOCS_BASE_URL}/openclaw.md and follow the steps to install the Clawkpit skill.`, 1)}
                 className={cn(
                   "w-full flex items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-left min-w-0",
                   "hover:bg-muted/50 transition-colors"
                 )}
               >
                 <code className="text-xs font-mono text-foreground truncate min-w-0 flex-1">
-                  {`Open ${APP_BASE_URL}/openclaw.md and follow the steps to install the Clawkpit skill.`}
+                  {`Open ${OPENCLAW_DOCS_BASE_URL}/openclaw.md and follow the steps to install the Clawkpit skill.`}
                 </code>
                 {openclawModalCopiedStep === 1 ? (
                   <span className="text-xs text-green-600 dark:text-green-400 shrink-0">Copied!</span>
