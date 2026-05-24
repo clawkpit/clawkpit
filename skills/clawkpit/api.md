@@ -10,6 +10,8 @@ Base URL: use `CLAWKPIT_BASE_URL` from environment or config (e.g. `https://your
 
 **Agent actor rule:** Agents should act as `AI`, not `User`. When using an API key, if you omit `createdBy`, `modifiedBy`, `author`, or `actor`, the server defaults them to `"AI"`. Agents may send `"AI"` explicitly, but should not send `"User"`.
 
+**Assignee rule:** `assignedTo` is who should perform the next action (`User` = human, `AI` = agent). On item create via API key, `assignedTo` is **required**. On session/user create, it defaults to `"AI"` if omitted. Agent markdown/form push creates items with `assignedTo: "User"`. Use `assignedTo=User` for the human inbox/focus; use `assignedTo=AI` for the agent queue/work.
+
 ## Device flow (connect without pasting secrets)
 
 No auth for start and poll; confirm requires a **logged-in session** (cookie).
@@ -35,10 +37,10 @@ Enums: **urgency** DoNow | DoToday | DoThisWeek | DoLater | Unclear; **tag** ToR
 
 | Method | Path | Body / Query | Response |
 |--------|------|--------------|----------|
-| POST | `/api/v1/items` | `title` (required), `description?`, `urgency?`, `tag?`, `importance?`, `deadline?` (ISO or null), `status?`, `createdBy?` | 201 + full item. |
-| GET | `/api/v1/items` | Query: `status` (Active\|Done\|Dropped\|All), `tag?`, `importance?`, `urgency?`, `deadlineBefore?`, `deadlineAfter?`, `createdBy?`, `modifiedBy?`, `page`, `pageSize` | `{ "items", "total", "page", "pageSize" }`. |
+| POST | `/api/v1/items` | `title` (required), `description?`, `urgency?`, `tag?`, `importance?`, `deadline?` (ISO or null), `status?`, `createdBy?`, `assignedTo?` (required for API-key auth; defaults to `AI` for session) | 201 + full item. |
+| GET | `/api/v1/items` | Query: `status` (Active\|Done\|Dropped\|All), `tag?`, `importance?`, `urgency?`, `deadlineBefore?`, `deadlineAfter?`, `createdBy?`, `modifiedBy?`, `assignedTo?`, `page`, `pageSize` | `{ "items", "total", "page", "pageSize" }`. |
 | GET | `/api/v1/items/:id` | — | Single item or 404. |
-| PATCH | `/api/v1/items/:id` | Any of: `title`, `description`, `urgency`, `tag`, `importance`, `deadline`, `status`, `openedAt`, `modifiedBy`, `hasAIChanges` | Updated item or 404. |
+| PATCH | `/api/v1/items/:id` | Any of: `title`, `description`, `urgency`, `tag`, `importance`, `deadline`, `status`, `openedAt`, `modifiedBy`, `assignedTo`, `hasAIChanges` | Updated item or 404. |
 | POST | `/api/v1/items/batch` | Array of `{ "action": "create" \| "update", "id?" (for update), "payload" }` | `{ "results": [ { "ok", "item?" \| "error?" } ] }`. |
 
 ## Notes
@@ -64,9 +66,9 @@ Use `externalId` for recurring syncs from external systems. It should be a deter
 
 | Method | Path | Body | Response |
 |--------|------|------|----------|
-| POST | `/api/agent/markdown` | `{ "title?", "markdown" (required, max 100k), "externalId?" }` | 201 + `{ "markdownId", "itemId" }`. Creates a ToRead item linked to the content. |
+| POST | `/api/agent/markdown` | `{ "title?", "markdown" (required, max 100k), "externalId?" }` | 201 + `{ "markdownId", "itemId" }`. Creates a ToRead item linked to the content (`assignedTo: User`). |
 | GET | `/api/markdown/:id` | — | `{ "id", "title", "markdown", "createdAt" }` or 404. Only the owning user can access. |
-| POST | `/api/agent/form` | `{ "title?", "formMarkdown" (required, max 100k), "externalId?" }` | 201 + `{ "formId", "itemId" }`. Creates a ToDo item linked to the form. |
+| POST | `/api/agent/form` | `{ "title?", "formMarkdown" (required, max 100k), "externalId?" }` | 201 + `{ "formId", "itemId" }`. Creates a ToDo item linked to the form (`assignedTo: User`). |
 | GET | `/api/forms/:id` | — | `{ "id", "title", "formMarkdown", "createdAt" }` or 404. Only the owning user can access. |
 | POST | `/api/forms/:id/submit` | `{ "itemId?", "response": { ... } }` | 201 + `{ "id" }`. Saves the response and marks the linked item as Done. Intended for human-completed forms, not agent-authored submissions. |
 | GET | `/api/agent/forms/:id/responses` | — | `{ "responses": [ { "id", "userId", "contentId", "itemId", "response", "createdAt" } ] }`. Only the owning user can access. |
@@ -77,7 +79,7 @@ Browser clients can connect to `ws(s)://<host>/api/ws` (session cookie required)
 
 ## Item shape
 
-`id`, `humanId`, `userId`, `title`, `description`, `urgency`, `tag`, `importance`, `deadline` (ISO or null), `status`, `createdAt`, `updatedAt`, `openedAt`, `createdBy`, `modifiedBy`, `hasAIChanges` (boolean), `contentId?` (linked agent content UUID or null), `contentType?` ("markdown" \| "form" \| null).
+`id`, `humanId`, `userId`, `title`, `description`, `urgency`, `tag`, `importance`, `deadline` (ISO or null), `status`, `createdAt`, `updatedAt`, `openedAt`, `createdBy`, `modifiedBy`, `assignedTo` (User \| AI), `hasAIChanges` (boolean), `contentId?` (linked agent content UUID or null), `contentType?` ("markdown" \| "form" \| null).
 
 ## Note shape
 

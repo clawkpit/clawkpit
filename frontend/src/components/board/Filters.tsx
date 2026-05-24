@@ -18,6 +18,7 @@ export function BoardFilters({ filters, projects, onFiltersChange }: BoardFilter
     filters.hasDeadline !== "All" ||
     filters.createdBy !== "All" ||
     filters.modifiedBy !== "All" ||
+    filters.assignedTo !== "All" ||
     filters.project !== "All";
 
   const resetFilters = () => {
@@ -26,6 +27,7 @@ export function BoardFilters({ filters, projects, onFiltersChange }: BoardFilter
       hasDeadline: "All",
       createdBy: "All",
       modifiedBy: "All",
+      assignedTo: "All",
       project: "All",
     });
   };
@@ -35,6 +37,7 @@ export function BoardFilters({ filters, projects, onFiltersChange }: BoardFilter
     filters.hasDeadline !== "All",
     filters.createdBy !== "All",
     filters.modifiedBy !== "All",
+    filters.assignedTo !== "All",
     filters.project !== "All",
   ].filter(Boolean).length;
 
@@ -93,6 +96,17 @@ export function BoardFilters({ filters, projects, onFiltersChange }: BoardFilter
       <div className="flex items-center gap-2">
         <span className="text-xs font-medium text-muted-foreground">Modified By</span>
         <Select value={filters.modifiedBy} onValueChange={(v) => onFiltersChange({ ...filters, modifiedBy: v as FilterState["modifiedBy"] })}>
+          <SelectTrigger className="h-8 text-xs w-[110px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="All">All</SelectItem>
+            <SelectItem value="User">User</SelectItem>
+            <SelectItem value="AI">AI</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-medium text-muted-foreground">Assigned to</span>
+        <Select value={filters.assignedTo} onValueChange={(v) => onFiltersChange({ ...filters, assignedTo: v as FilterState["assignedTo"] })}>
           <SelectTrigger className="h-8 text-xs w-[110px]"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="All">All</SelectItem>

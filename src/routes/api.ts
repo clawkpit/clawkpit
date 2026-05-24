@@ -216,6 +216,14 @@ function inferActor(req: any, parsed: Record<string, unknown>, field: string): v
   parsed[field] = req.authVia === "apikey" ? "AI" : "User";
 }
 
+/** Apply assignedTo defaults: user/session → AI if omitted; API key → required. Returns error message when invalid. */
+function applyAssignedTo(req: any, payload: Record<string, unknown>, rawPayload: Record<string, unknown>): string | null {
+  if ("assignedTo" in rawPayload) return null;
+  if (req.authVia === "apikey") return "assignedTo is required for AI-authenticated item creation";
+  payload.assignedTo = "AI";
+  return null;
+}
+
 api.get("/me", (req, res) => res.json({ user: (req as any).user }));
 
 api.patch("/me", async (req, res) => {
@@ -347,6 +355,8 @@ api.post("/v1/items", async (req, res) => {
   const parsed = createItemSchema.safeParse(req.body);
   if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
   inferActor(req, parsed.data, "createdBy");
+  const assignedToError = applyAssignedTo(req, parsed.data, req.body ?? {});
+  if (assignedToError) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, assignedToError);
   try {
     const item = await createItem((req as any).user.id, parsed.data);
     broadcastToUser((req as any).user.id, { type: "items:changed" });
@@ -421,8 +431,11 @@ api.post("/v1/items/batch", async (req, res) => {
     if (op.action === "update" && !("modifiedBy" in rawPayload)) op.payload.modifiedBy = defaultActor;
   });
   const results = await Promise.all(
-    parsed.data.map(async (op) => {
+    parsed.data.map(async (op, i) => {
       if (op.action === "create") {
+        const rawPayload = rawOps[i]?.payload ?? {};
+        const assignedToError = applyAssignedTo(req, op.payload, rawPayload);
+        if (assignedToError) return { ok: false as const, error: assignedToError };
         const item = await createItem(userId, op.payload);
         return { ok: true as const, item };
       }

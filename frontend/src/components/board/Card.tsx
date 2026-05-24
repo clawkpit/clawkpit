@@ -72,6 +72,17 @@ export function BoardCard({ item, viewMode = "urgency", onClick, onDragStart, on
             {item.project.name}
           </Badge>
         )}
+        <Badge
+          variant="outline"
+          className={cn(
+            "text-[10px] font-medium px-1.5 py-0 h-4",
+            item.assignedTo === "AI"
+              ? "border-violet-500/30 text-violet-700 dark:text-violet-300"
+              : "text-muted-foreground"
+          )}
+        >
+          {item.assignedTo}
+        </Badge>
         <span
           className={cn(
             "text-[11px] font-semibold px-1.5 py-0.5 rounded",

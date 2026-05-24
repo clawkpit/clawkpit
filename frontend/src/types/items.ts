@@ -30,6 +30,7 @@ export interface Item {
   deadline?: Date;
   createdBy: ItemAuthor;
   modifiedBy: ItemAuthor;
+  assignedTo: ItemAuthor;
   modifiedAt: Date;
   hasAIChanges: boolean;
   notes?: ItemNote[];
@@ -51,6 +52,7 @@ export interface FilterState {
   hasDeadline: "All" | "Yes" | "No";
   createdBy: ItemAuthor | "All";
   modifiedBy: ItemAuthor | "All";
+  assignedTo: ItemAuthor | "All";
   project: "All" | "None" | string;
 }
 

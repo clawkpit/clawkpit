@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import type { Item, ItemNote, ItemTag, ItemColumn, ItemImportance, ItemContentType, Project } from "@/types/items";
+import type { Item, ItemNote, ItemTag, ItemColumn, ItemImportance, ItemContentType, Project, ItemAuthor } from "@/types/items";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -30,6 +30,7 @@ interface DetailPanelProps {
     importance: ItemImportance;
     deadline?: Date | null;
     projectId?: string | null;
+    assignedTo?: ItemAuthor;
   }) => void;
   onUpdate?: (itemId: string, updates: Partial<Item> & { projectId?: string | null }) => void;
   onCreateProject?: (name: string) => Promise<Project>;
@@ -63,6 +64,7 @@ export function DetailPanel({
   const [localImportance, setLocalImportance] = useState<ItemImportance>("M");
   const [localDeadline, setLocalDeadline] = useState<string>("");
   const [localProjectId, setLocalProjectId] = useState<string>("none");
+  const [localAssignedTo, setLocalAssignedTo] = useState<ItemAuthor>("AI");
   const [showCreateProject, setShowCreateProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [creatingProject, setCreatingProject] = useState(false);
@@ -78,6 +80,7 @@ export function DetailPanel({
       setLocalImportance(item.importance);
       setLocalDeadline(item.deadline ? new Date(item.deadline).toISOString().slice(0, 16) : "");
       setLocalProjectId(item.projectId ?? "none");
+      setLocalAssignedTo(item.assignedTo);
       setError(null);
     } else if (isOpen) {
       setLocalTitle("");
@@ -87,9 +90,15 @@ export function DetailPanel({
       setLocalImportance("M");
       setLocalDeadline("");
       setLocalProjectId("none");
+      setLocalAssignedTo("AI");
       setError(null);
     }
   }, [item, isOpen, isCreate]);
+
+  const handleAssignedToChange = (value: ItemAuthor) => {
+    setLocalAssignedTo(value);
+    if (item) onUpdate?.(item.id, { assignedTo: value });
+  };
 
   const handleProjectChange = (value: string) => {
     setLocalProjectId(value);
@@ -179,6 +188,7 @@ export function DetailPanel({
       importance: localImportance,
       deadline: localDeadline ? new Date(localDeadline) : null,
       projectId: localProjectId === "none" ? null : localProjectId,
+      assignedTo: localAssignedTo,
     });
   };
 
@@ -311,6 +321,16 @@ export function DetailPanel({
                   }}
                   className="text-sm"
                 />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground">Assigned to</label>
+                <Select value={localAssignedTo} onValueChange={(v) => handleAssignedToChange(v as ItemAuthor)}>
+                  <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="User">User</SelectItem>
+                    <SelectItem value="AI">AI</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2 col-span-2">
                 <label className="text-xs font-medium text-muted-foreground">Project</label>

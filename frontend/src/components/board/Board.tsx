@@ -52,6 +52,7 @@ export function Board({
     if (filters.hasDeadline === "No" && item.deadline) return false;
     if (filters.createdBy !== "All" && item.createdBy !== filters.createdBy) return false;
     if (filters.modifiedBy !== "All" && item.modifiedBy !== filters.modifiedBy) return false;
+    if (filters.assignedTo !== "All" && item.assignedTo !== filters.assignedTo) return false;
     return true;
   });
 

@@ -128,6 +128,7 @@ async function upsertContent(
     importance: "Medium",
     status: "Active",
     createdBy: "AI",
+    assignedTo: "User",
     contentId: contentId.id,
   });
   return { contentId: contentId.id, itemId: item.id };
