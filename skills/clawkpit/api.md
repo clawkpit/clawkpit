@@ -14,6 +14,8 @@ Base URL: use `CLAWKPIT_BASE_URL` from environment or config (e.g. `https://your
 
 ## Device flow (connect without pasting secrets)
 
+`POST /api/openclaw/device/start` is the only request needed to generate the display code. Return it to the user immediately; do not wait for authorization before showing the code. Polling is separate and can continue in the background after the code is already surfaced.
+
 No auth for start and poll; confirm requires a **logged-in session** (cookie).
 
 | Method | Path | Auth | Body | Response |

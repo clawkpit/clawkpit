@@ -17,7 +17,7 @@ Never ask the user to paste API keys or tokens in chat. Never print or log token
 
 Handle the slash command `/clawkpit`. Parse the raw args for the subcommand and optional flags.
 
-- **connect**: If a token is already stored, report that the user is already connected and suggest `/clawkpit status`. Otherwise parse an optional email from `/clawkpit connect [email]`; if absent, ask for the account email. Start the device flow, show only the display code and URL, poll until authorized, store the returned token locally, and confirm success without echoing any secret.
+- **connect**: If a token is already stored, report that the user is already connected and suggest `/clawkpit status`. Otherwise parse an optional email from `/clawkpit connect [email]`; if absent, ask for the account email. Call the device-flow start endpoint once, then immediately show only the returned display code and URL to open. Do not wait for authorization before surfacing the code. If you continue polling, do it in the background after the code is already shown. Store the returned token locally and confirm success without echoing any secret.
 - **status**: Call `GET /api/me` with the stored token. Report the connected account without printing the token. If auth fails, direct the user to `/clawkpit connect`.
 - **install**: Direct the user to `https://your-clawkpit-instance.example.com/openclaw.md`.
 - **inbox**: List active items for the **human** (`GET /api/v1/items?status=Active&assignedTo=User`). Return a short summary and a compact list with id, title, urgency, deadline, and tag.
