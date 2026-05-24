@@ -67,6 +67,11 @@ export function BoardCard({ item, viewMode = "urgency", onClick, onDragStart, on
         <Badge variant="secondary" className={badgeClass}>
           {badgeLabel}
         </Badge>
+        {item.project && (
+          <Badge variant="outline" className="text-[10px] font-medium px-1.5 py-0 h-4 text-muted-foreground">
+            {item.project.name}
+          </Badge>
+        )}
         <span
           className={cn(
             "text-[11px] font-semibold px-1.5 py-0.5 rounded",

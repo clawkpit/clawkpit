@@ -18,6 +18,7 @@ model User {
   magicLinks          MagicLink[]
   sessions            Session[]
   items               Item[]
+  projects            Project[]
   userCounter         UserCounter?
   apiKeys             ApiKey[]
   emailChangeRequest  EmailChangeRequest?
@@ -70,8 +71,10 @@ model Item {
   modifiedBy    String   @map("modified_by")
   hasAIChanges  Boolean  @default(false) @map("has_ai_changes")
   contentId     String?  @map("content_id")
+  projectId     String?  @map("project_id")
 
   user          User           @relation(fields: [userId], references: [id])
+  project       Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
   notes         Note[]
   content       AgentContent?  @relation(fields: [contentId], references: [id])
   formResponses FormResponse[]
@@ -81,7 +84,20 @@ model Item {
   @@index([userId, deadline])
   @@index([userId, updatedAt])
   @@index([userId, contentId])
+  @@index([userId, projectId])
   @@map("items")
+}
+
+model Project {
+  id     String @id
+  userId String @map("user_id")
+  name   String
+
+  user  User   @relation(fields: [userId], references: [id])
+  items Item[]
+
+  @@index([userId, name])
+  @@map("projects")
 }
 
 model AgentContent {

@@ -7,6 +7,7 @@ import type {
   ItemTag,
   ItemImportance,
   ItemColumn,
+  Project,
 } from "@/types/items";
 import {
   BACKEND_TO_TAG,
@@ -173,6 +174,8 @@ function mapItem(raw: {
   hasAIChanges: boolean;
   contentId?: string | null;
   contentType?: string | null;
+  projectId?: string | null;
+  project?: { id: string; name: string } | null;
 }): Item {
   return {
     id: raw.id,
@@ -190,6 +193,15 @@ function mapItem(raw: {
     hasAIChanges: raw.hasAIChanges,
     contentId: raw.contentId ?? undefined,
     contentType: (raw.contentType as Item["contentType"]) ?? undefined,
+    projectId: raw.projectId ?? null,
+    project: raw.project ?? null,
+  };
+}
+
+function mapProject(raw: { id: string; name: string }): Project {
+  return {
+    id: raw.id,
+    name: raw.name,
   };
 }
 
@@ -201,6 +213,8 @@ export interface ListItemsQuery {
   importance?: FilterState["importance"];
   createdBy?: FilterState["createdBy"];
   modifiedBy?: FilterState["modifiedBy"];
+  projectId?: string;
+  noProject?: boolean;
 }
 
 export async function listItems(query: ListItemsQuery): Promise<{ items: Item[]; total: number }> {
@@ -212,6 +226,8 @@ export async function listItems(query: ListItemsQuery): Promise<{ items: Item[];
   if (query.importance && query.importance !== "All") params.set("importance", IMPORTANCE_TO_BACKEND[query.importance]);
   if (query.createdBy && query.createdBy !== "All") params.set("createdBy", query.createdBy);
   if (query.modifiedBy && query.modifiedBy !== "All") params.set("modifiedBy", query.modifiedBy);
+  if (query.projectId) params.set("projectId", query.projectId);
+  if (query.noProject) params.set("noProject", "true");
   const data = await apiFetch<{ items: unknown[]; total: number }>(`/v1/items?${params}`);
   return { items: data.items.map((i) => mapItem(i as Parameters<typeof mapItem>[0])), total: data.total };
 }
@@ -230,6 +246,7 @@ export interface CreateItemPayload {
   deadline?: Date | null;
   status?: Item["status"];
   createdBy?: Item["createdBy"];
+  projectId?: string | null;
 }
 
 export async function createItem(payload: CreateItemPayload): Promise<Item> {
@@ -242,6 +259,7 @@ export async function createItem(payload: CreateItemPayload): Promise<Item> {
     deadline: payload.deadline ? payload.deadline.toISOString() : null,
     status: payload.status ?? "Active",
     createdBy: payload.createdBy ?? "User",
+    projectId: payload.projectId ?? null,
   };
   const raw = await apiFetch<Parameters<typeof mapItem>[0]>("/v1/items", {
     method: "POST",
@@ -260,6 +278,7 @@ export interface UpdateItemPayload {
   status?: Item["status"];
   modifiedBy?: Item["modifiedBy"];
   hasAIChanges?: boolean;
+  projectId?: string | null;
 }
 
 export async function updateItem(id: string, payload: UpdateItemPayload): Promise<Item> {
@@ -273,6 +292,7 @@ export async function updateItem(id: string, payload: UpdateItemPayload): Promis
   if (payload.status !== undefined) body.status = payload.status;
   if (payload.modifiedBy !== undefined) body.modifiedBy = payload.modifiedBy;
   if (payload.hasAIChanges !== undefined) body.hasAIChanges = payload.hasAIChanges;
+  if (payload.projectId !== undefined) body.projectId = payload.projectId;
   const raw = await apiFetch<Parameters<typeof mapItem>[0]>(`/v1/items/${id}`, {
     method: "PATCH",
     body: JSON.stringify(body),
@@ -363,4 +383,19 @@ export async function submitFormResponse(
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export async function listProjects(): Promise<Project[]> {
+  const data = await apiFetch<{ projects?: { id: string; name: string }[] }>(
+    "/v1/projects"
+  );
+  return Array.isArray(data.projects) ? data.projects.map(mapProject) : [];
+}
+
+export async function createProject(name: string): Promise<Project> {
+  const raw = await apiFetch<{ id: string; name: string }>("/v1/projects", {
+    method: "POST",
+    body: JSON.stringify({ name }),
+  });
+  return mapProject(raw);
 }

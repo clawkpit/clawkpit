@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
-import type { Item, ItemColumn, ItemTag, FilterState } from "@/types/items";
+import type { Item, ItemColumn, ItemTag, FilterState, Project } from "@/types/items";
 import { Board } from "@/components/board/Board";
 import { BoardFilters } from "@/components/board/Filters";
 import { DetailPanel } from "@/components/DetailPanel";
@@ -21,6 +21,8 @@ import {
   dropItem,
   confirmOpenclawDevice,
   listApiKeys,
+  listProjects,
+  createProject,
 } from "@/api/client";
 import { useAuth } from "@/api/client";
 import { PlusIcon, ArchiveIcon, SettingsIcon, CopyIcon } from "lucide-react";
@@ -43,6 +45,7 @@ const DEFAULT_FILTERS: FilterState = {
   hasDeadline: "All",
   createdBy: "All",
   modifiedBy: "All",
+  project: "All",
 };
 
 const APP_BASE_URL =
@@ -58,6 +61,7 @@ export function BoardPage() {
   const { user } = useAuth();
   const [viewMode, setViewMode] = useState<ViewMode>("urgency");
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
@@ -82,9 +86,16 @@ export function BoardPage() {
       importance: filters.importance !== "All" ? filters.importance : undefined,
       createdBy: filters.createdBy !== "All" ? filters.createdBy : undefined,
       modifiedBy: filters.modifiedBy !== "All" ? filters.modifiedBy : undefined,
+      projectId: filters.project !== "All" && filters.project !== "None" ? filters.project : undefined,
+      noProject: filters.project === "None",
     });
     setItems(res.items);
-  }, [filters.importance, filters.createdBy, filters.modifiedBy]);
+  }, [filters.importance, filters.createdBy, filters.modifiedBy, filters.project]);
+
+  const fetchProjects = useCallback(async () => {
+    const list = await listProjects();
+    setProjects(list);
+  }, []);
 
   const loadItems = useCallback(async () => {
     setLoading(true);
@@ -98,6 +109,10 @@ export function BoardPage() {
   useEffect(() => {
     loadItems();
   }, [loadItems]);
+
+  useEffect(() => {
+    fetchProjects().catch(() => {});
+  }, [fetchProjects]);
 
   useBoardSocket(fetchItems, !!user);
 
@@ -163,6 +178,7 @@ export function BoardPage() {
     column: ItemColumn;
     importance: import("@/types/items").ItemImportance;
     deadline?: Date | null;
+    projectId?: string | null;
   }) => {
     await createItem({
       ...payload,
@@ -171,12 +187,20 @@ export function BoardPage() {
     });
     handleClosePanel();
     fetchItems();
+    fetchProjects();
   };
 
-  const handleUpdate = async (itemId: string, updates: Partial<Item>) => {
-    await updateItem(itemId, updates);
+  const handleUpdate = async (itemId: string, updates: Partial<Item> & { projectId?: string | null }) => {
+    const { project, ...apiUpdates } = updates;
+    await updateItem(itemId, apiUpdates);
     setSelectedItem((prev) => (prev && prev.id === itemId ? { ...prev, ...updates } : prev));
     setItems((prev) => prev.map((i) => (i.id === itemId ? { ...i, ...updates } : i)));
+  };
+
+  const handleCreateProject = async (name: string) => {
+    const project = await createProject(name);
+    setProjects((prev) => [...prev, project].sort((a, b) => a.name.localeCompare(b.name)));
+    return project;
   };
 
   const handleItemMove = async (item: Item, targetColumn: ItemColumn | ItemTag) => {
@@ -310,7 +334,7 @@ export function BoardPage() {
               </Link>
             </div>
           </div>
-          <BoardFilters filters={filters} onFiltersChange={setFilters} />
+          <BoardFilters filters={filters} projects={projects} onFiltersChange={setFilters} />
         </div>
       </div>
 
@@ -340,10 +364,12 @@ export function BoardPage() {
       <DetailPanel
         item={isCreate ? null : selectedItem}
         notes={panelNotes}
+        projects={projects}
         isOpen={isPanelOpen}
         onClose={handleClosePanel}
         onCreate={handleCreate}
         onUpdate={handleUpdate}
+        onCreateProject={handleCreateProject}
         onMarkDone={handleMarkDone}
         onDrop={handleDrop}
         onAddNote={handleAddNote}

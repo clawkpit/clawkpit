@@ -8,6 +8,7 @@ import {
   createApiKeySchema,
   createItemSchema,
   createNoteSchema,
+  createProjectSchema,
   doneSchema,
   dropSchema,
   listItemsQuerySchema,
@@ -48,6 +49,7 @@ import {
   upsertMarkdown
 } from "../services/agentContentService";
 import { addNote, createItem, dropItem, getItem, listItems, listNotes, markDone, patchItem, updateNote } from "../services/itemService";
+import { createProject, listProjects } from "../services/projectService";
 import { broadcastToUser } from "../services/boardBroadcast";
 import { sendApiError, ApiErrorCode } from "../services/apiError";
 import {
@@ -345,9 +347,14 @@ api.post("/v1/items", async (req, res) => {
   const parsed = createItemSchema.safeParse(req.body);
   if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
   inferActor(req, parsed.data, "createdBy");
-  const item = await createItem((req as any).user.id, parsed.data);
-  broadcastToUser((req as any).user.id, { type: "items:changed" });
-  return res.status(201).json(item);
+  try {
+    const item = await createItem((req as any).user.id, parsed.data);
+    broadcastToUser((req as any).user.id, { type: "items:changed" });
+    return res.status(201).json(item);
+  } catch (e: any) {
+    if (e.message === "NOT_FOUND") return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found");
+    throw e;
+  }
 });
 
 api.get("/v1/items", async (req, res) => {
@@ -372,10 +379,34 @@ api.patch("/v1/items/:id", async (req, res) => {
   if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
   const hasSubstantiveFields = Object.keys(req.body ?? {}).some((k) => k !== "hasAIChanges");
   if (hasSubstantiveFields) inferActor(req, parsed.data, "modifiedBy");
-  const item = await patchItem((req as any).user.id, idParsed.data, parsed.data);
-  if (!item) return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found");
-  broadcastToUser((req as any).user.id, { type: "items:changed" });
-  return res.json(item);
+  try {
+    const item = await patchItem((req as any).user.id, idParsed.data, parsed.data);
+    if (!item) return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found");
+    broadcastToUser((req as any).user.id, { type: "items:changed" });
+    return res.json(item);
+  } catch (e: any) {
+    if (e.message === "NOT_FOUND") return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found");
+    throw e;
+  }
+});
+
+function serializeProject(project: { id: string; name: string }) {
+  return {
+    id: project.id,
+    name: project.name,
+  };
+}
+
+api.get("/v1/projects", async (req, res) => {
+  const projects = await listProjects((req as any).user.id);
+  return res.json({ projects: projects.map(serializeProject) });
+});
+
+api.post("/v1/projects", async (req, res) => {
+  const parsed = createProjectSchema.safeParse(req.body);
+  if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
+  const project = await createProject((req as any).user.id, parsed.data.name);
+  return res.status(201).json(serializeProject(project));
 });
 
 api.post("/v1/items/batch", async (req, res) => {

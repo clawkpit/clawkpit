@@ -15,7 +15,8 @@ export const createItemSchema = z.object({
   importance: importance.default("Medium"),
   deadline: z.string().datetime().nullable().optional(),
   status: status.default("Active"),
-  createdBy: actor.default("User")
+  createdBy: actor.default("User"),
+  projectId: z.string().uuid().nullable().optional()
 });
 
 export const updateItemSchema = z.object({
@@ -29,6 +30,7 @@ export const updateItemSchema = z.object({
   openedAt: z.string().datetime().optional(),
   modifiedBy: actor.optional(),
   hasAIChanges: z.boolean().optional(),
+  projectId: z.string().uuid().nullable().optional(),
 }).refine((v) => Object.keys(v).length > 0, "No fields provided");
 
 export const listItemsQuerySchema = z.object({
@@ -40,6 +42,11 @@ export const listItemsQuerySchema = z.object({
   modifiedBy: actor.optional(),
   createdBy: actor.optional(),
   urgency: urgency.optional(),
+  projectId: z.string().uuid().optional(),
+  noProject: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => v === "true"),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(500).default(50)
 });
@@ -83,6 +90,10 @@ export const updateMeSchema = z.object({
 
 export const createApiKeySchema = z.object({
   name: z.string().max(255).optional()
+});
+
+export const createProjectSchema = z.object({
+  name: z.string().min(1).max(255),
 });
 
 export const openclawDeviceStartSchema = z.object({

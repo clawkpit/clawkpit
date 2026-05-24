@@ -1,6 +1,7 @@
 import { prisma } from "../db/prisma";
 import { randomUUID } from "node:crypto";
 import { Item, Note } from "../domain/types";
+import { getProjectForUser } from "./projectService";
 
 function now(): string {
   return new Date().toISOString();
@@ -24,10 +25,15 @@ type PrismaItemRow = {
   modifiedBy: string;
   hasAIChanges: boolean;
   contentId?: string | null;
+  projectId?: string | null;
   content?: { type: string } | null;
+  project?: { id: string; name: string } | null;
 };
 
-const CONTENT_INCLUDE = { content: { select: { type: true } } } as const;
+const ITEM_INCLUDE = {
+  content: { select: { type: true } },
+  project: { select: { id: true, name: true } },
+} as const;
 
 function mapItem(r: PrismaItemRow): Item {
   return {
@@ -49,6 +55,8 @@ function mapItem(r: PrismaItemRow): Item {
     hasAIChanges: r.hasAIChanges ?? false,
     contentId: r.contentId ?? null,
     contentType: (r.content?.type as Item["contentType"]) ?? null,
+    projectId: r.projectId ?? null,
+    project: r.project ? { id: r.project.id, name: r.project.name } : null,
   };
 }
 
@@ -78,12 +86,20 @@ async function nextHumanId(userId: string): Promise<number> {
   });
 }
 
+async function resolveProjectId(userId: string, projectId: string | null): Promise<string | null> {
+  if (projectId === null) return null;
+  const project = await getProjectForUser(userId, projectId);
+  if (!project) throw new Error("NOT_FOUND");
+  return projectId;
+}
+
 export async function createItem(userId: string, payload: any): Promise<Item> {
   const ts = new Date();
   const id = randomUUID();
   const humanId = await nextHumanId(userId);
   const createdBy = payload.createdBy ?? "User";
   const hasAIChanges = createdBy === "AI";
+  if (payload.projectId != null) await resolveProjectId(userId, payload.projectId);
   await prisma.item.create({
     data: {
       id,
@@ -103,6 +119,7 @@ export async function createItem(userId: string, payload: any): Promise<Item> {
       modifiedBy: createdBy,
       hasAIChanges,
       contentId: payload.contentId ?? null,
+      projectId: payload.projectId ?? null,
     },
   });
   const item = await getItem(userId, id);
@@ -111,7 +128,7 @@ export async function createItem(userId: string, payload: any): Promise<Item> {
 }
 
 export async function getItem(userId: string, id: string): Promise<Item | null> {
-  const row = await prisma.item.findFirst({ where: { id, userId }, include: CONTENT_INCLUDE });
+  const row = await prisma.item.findFirst({ where: { id, userId }, include: ITEM_INCLUDE });
   return row ? mapItem(row) : null;
 }
 
@@ -126,6 +143,8 @@ export async function listItems(
   if (query.modifiedBy) where.modifiedBy = query.modifiedBy;
   if (query.createdBy) where.createdBy = query.createdBy;
   if (query.urgency) where.urgency = query.urgency;
+  if (query.noProject) where.projectId = null;
+  else if (query.projectId) where.projectId = query.projectId;
   if (query.deadlineBefore || query.deadlineAfter) {
     const deadlineFilter: { not?: null; lt?: string; gt?: string } = { not: null as any };
     if (query.deadlineBefore) deadlineFilter.lt = query.deadlineBefore;
@@ -135,7 +154,7 @@ export async function listItems(
 
   const [total, allRows] = await Promise.all([
     prisma.item.count({ where }),
-    prisma.item.findMany({ where, include: CONTENT_INCLUDE }),
+    prisma.item.findMany({ where, include: ITEM_INCLUDE }),
   ]);
 
   const importanceOrder: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
@@ -165,16 +184,23 @@ export async function patchItem(userId: string, id: string, payload: any): Promi
   const isMetadataOnly = payloadKeys.length === 1 && payloadKeys[0] === "hasAIChanges";
 
   if (isMetadataOnly) {
-    await prisma.item.update({
-      where: { id },
-      data: { hasAIChanges: payload.hasAIChanges },
-    });
+    if (payload.hasAIChanges !== undefined) {
+      await prisma.item.update({
+        where: { id },
+        data: { hasAIChanges: payload.hasAIChanges },
+      });
+    }
     return getItem(userId, id);
   }
+
+  const projectId = payload.projectId !== undefined
+    ? await resolveProjectId(userId, payload.projectId)
+    : current.projectId ?? null;
 
   const merged = {
     ...current,
     ...payload,
+    projectId,
     modifiedBy: (payload.modifiedBy ?? current.modifiedBy) as string,
     updatedAt: now(),
   };
@@ -195,6 +221,7 @@ export async function patchItem(userId: string, id: string, payload: any): Promi
       updatedAt: new Date(merged.updatedAt),
       modifiedBy: merged.modifiedBy,
       hasAIChanges,
+      projectId: merged.projectId,
     },
   });
   return getItem(userId, id);

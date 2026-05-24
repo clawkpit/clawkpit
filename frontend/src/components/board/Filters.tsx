@@ -1,22 +1,24 @@
 import { useState } from "react";
-import type { FilterState } from "@/types/items";
+import type { FilterState, Project } from "@/types/items";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { XIcon, FilterIcon, ChevronDownIcon } from "lucide-react";
 
 interface BoardFiltersProps {
   filters: FilterState;
+  projects: Project[];
   onFiltersChange: (filters: FilterState) => void;
 }
 
-export function BoardFilters({ filters, onFiltersChange }: BoardFiltersProps) {
+export function BoardFilters({ filters, projects, onFiltersChange }: BoardFiltersProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const hasActiveFilters =
     filters.importance !== "All" ||
     filters.hasDeadline !== "All" ||
     filters.createdBy !== "All" ||
-    filters.modifiedBy !== "All";
+    filters.modifiedBy !== "All" ||
+    filters.project !== "All";
 
   const resetFilters = () => {
     onFiltersChange({
@@ -24,6 +26,7 @@ export function BoardFilters({ filters, onFiltersChange }: BoardFiltersProps) {
       hasDeadline: "All",
       createdBy: "All",
       modifiedBy: "All",
+      project: "All",
     });
   };
 
@@ -32,6 +35,7 @@ export function BoardFilters({ filters, onFiltersChange }: BoardFiltersProps) {
     filters.hasDeadline !== "All",
     filters.createdBy !== "All",
     filters.modifiedBy !== "All",
+    filters.project !== "All",
   ].filter(Boolean).length;
 
   const filterRow = (
@@ -67,6 +71,22 @@ export function BoardFilters({ filters, onFiltersChange }: BoardFiltersProps) {
             <SelectItem value="All">All</SelectItem>
             <SelectItem value="User">User</SelectItem>
             <SelectItem value="AI">AI</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-medium text-muted-foreground">Project</span>
+        <Select
+          value={filters.project}
+          onValueChange={(v) => onFiltersChange({ ...filters, project: v })}
+        >
+          <SelectTrigger className="h-8 text-xs w-[140px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="All">All projects</SelectItem>
+            <SelectItem value="None">No project</SelectItem>
+            {projects.map((p) => (
+              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>

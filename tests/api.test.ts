@@ -12,6 +12,7 @@ async function resetDb() {
   await prisma.note.deleteMany();
   await prisma.formResponse.deleteMany();
   await prisma.item.deleteMany();
+  await prisma.project.deleteMany();
   await prisma.agentContent.deleteMany();
   await prisma.userCounter.deleteMany();
   await prisma.apiKey.deleteMany();
@@ -668,6 +669,25 @@ describe("Clawkpit API", () => {
       expect(patched.body.hasAIChanges).toBe(true);
     });
 
+    it("defaults modifiedBy to AI for API-key project assignment PATCH", async () => {
+      const session = await login();
+      const keyRes = await session.post("/api/me/keys").send({});
+      const apiKey = keyRes.body.key;
+      const project = await session.post("/api/v1/projects").send({ name: "Agent Work" });
+      const created = await session.post("/api/v1/items").send({ title: "User item" });
+
+      const patched = await request(app)
+        .patch(`/api/v1/items/${created.body.id}`)
+        .set("Authorization", `Bearer ${apiKey}`)
+        .send({ projectId: project.body.id });
+
+      expect(patched.status).toBe(200);
+      expect(patched.body.projectId).toBe(project.body.id);
+      expect(patched.body.project).toEqual({ id: project.body.id, name: "Agent Work" });
+      expect(patched.body.modifiedBy).toBe("AI");
+      expect(patched.body.hasAIChanges).toBe(true);
+    });
+
     it("respects explicit createdBy override even with API key", async () => {
       const session = await login();
       const keyRes = await session.post("/api/me/keys").send({});
@@ -704,6 +724,90 @@ describe("Clawkpit API", () => {
       expect(moved.status).toBe(200);
       expect(moved.body.modifiedBy).toBe("User");
       expect(moved.body.hasAIChanges).toBe(false);
+    });
+  });
+
+  describe("projects", () => {
+    it("creates and lists projects scoped to the authenticated user", async () => {
+      const agentA = await login("a@example.com");
+      const agentB = await login("b@example.com");
+
+      const created = await agentA.post("/api/v1/projects").send({ name: "Alpha" });
+      expect(created.status).toBe(201);
+      expect(created.body.name).toBe("Alpha");
+      expect(created.body.id).toBeTruthy();
+
+      const listA = await agentA.get("/api/v1/projects");
+      expect(listA.status).toBe(200);
+      expect(listA.body.projects).toHaveLength(1);
+      expect(listA.body.projects[0].name).toBe("Alpha");
+
+      const listB = await agentB.get("/api/v1/projects");
+      expect(listB.status).toBe(200);
+      expect(listB.body.projects).toHaveLength(0);
+    });
+
+    it("assigns a project to an item on create and update", async () => {
+      const agent = await login();
+      const project = await agent.post("/api/v1/projects").send({ name: "Work" });
+      expect(project.status).toBe(201);
+
+      const created = await agent.post("/api/v1/items").send({ title: "Task", projectId: project.body.id });
+      expect(created.status).toBe(201);
+      expect(created.body.projectId).toBe(project.body.id);
+      expect(created.body.project).toEqual({ id: project.body.id, name: "Work" });
+
+      const cleared = await agent.patch(`/api/v1/items/${created.body.id}`).send({ projectId: null });
+      expect(cleared.status).toBe(200);
+      expect(cleared.body.projectId).toBeNull();
+      expect(cleared.body.project).toBeNull();
+
+      const reassigned = await agent.patch(`/api/v1/items/${created.body.id}`).send({ projectId: project.body.id });
+      expect(reassigned.status).toBe(200);
+      expect(reassigned.body.projectId).toBe(project.body.id);
+      expect(reassigned.body.project?.name).toBe("Work");
+    });
+
+    it("filters items by projectId and noProject", async () => {
+      const agent = await login();
+      const alpha = await agent.post("/api/v1/projects").send({ name: "Alpha" });
+      const beta = await agent.post("/api/v1/projects").send({ name: "Beta" });
+      expect(alpha.status).toBe(201);
+      expect(beta.status).toBe(201);
+
+      await agent.post("/api/v1/items").send({ title: "No project" });
+      await agent.post("/api/v1/items").send({ title: "Alpha task", projectId: alpha.body.id });
+      await agent.post("/api/v1/items").send({ title: "Beta task", projectId: beta.body.id });
+
+      const all = await agent.get("/api/v1/items?status=Active");
+      expect(all.body.items).toHaveLength(3);
+
+      const alphaOnly = await agent.get(`/api/v1/items?status=Active&projectId=${alpha.body.id}`);
+      expect(alphaOnly.status).toBe(200);
+      expect(alphaOnly.body.items.map((i: any) => i.title)).toEqual(["Alpha task"]);
+
+      const noProject = await agent.get("/api/v1/items?status=Active&noProject=true");
+      expect(noProject.status).toBe(200);
+      expect(noProject.body.items.map((i: any) => i.title)).toEqual(["No project"]);
+    });
+
+    it("prevents assigning another user's project to an item", async () => {
+      const agentA = await login("a@example.com");
+      const agentB = await login("b@example.com");
+
+      const projectA = await agentA.post("/api/v1/projects").send({ name: "A project" });
+      expect(projectA.status).toBe(201);
+
+      const createBlocked = await agentB.post("/api/v1/items").send({ title: "Sneaky", projectId: projectA.body.id });
+      expect(createBlocked.status).toBe(404);
+      expect(createBlocked.body.error?.code).toBe("NOT_FOUND");
+
+      const itemB = await agentB.post("/api/v1/items").send({ title: "B item" });
+      expect(itemB.status).toBe(201);
+
+      const patchBlocked = await agentB.patch(`/api/v1/items/${itemB.body.id}`).send({ projectId: projectA.body.id });
+      expect(patchBlocked.status).toBe(404);
+      expect(patchBlocked.body.error?.code).toBe("NOT_FOUND");
     });
   });
 

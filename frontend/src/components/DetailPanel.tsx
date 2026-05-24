@@ -1,21 +1,38 @@
 import { useState, useEffect } from "react";
-import type { Item, ItemNote, ItemTag, ItemColumn, ItemImportance, ItemContentType } from "@/types/items";
+import type { Item, ItemNote, ItemTag, ItemColumn, ItemImportance, ItemContentType, Project } from "@/types/items";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { NotesSection } from "./NotesSection";
 import { ErrorState } from "./ErrorState";
-import { XIcon, CheckIcon, ArchiveXIcon, RotateCcwIcon, BookOpenIcon, ClipboardListIcon } from "lucide-react";
+import { XIcon, CheckIcon, ArchiveXIcon, RotateCcwIcon, BookOpenIcon, ClipboardListIcon, PlusIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface DetailPanelProps {
   item: Item | null;
   notes: ItemNote[];
+  projects: Project[];
   isOpen: boolean;
   onClose: () => void;
-  onCreate?: (payload: { title: string; description: string; tag: ItemTag; column: ItemColumn; importance: ItemImportance; deadline?: Date | null }) => void;
-  onUpdate?: (itemId: string, updates: Partial<Item>) => void;
+  onCreate?: (payload: {
+    title: string;
+    description: string;
+    tag: ItemTag;
+    column: ItemColumn;
+    importance: ItemImportance;
+    deadline?: Date | null;
+    projectId?: string | null;
+  }) => void;
+  onUpdate?: (itemId: string, updates: Partial<Item> & { projectId?: string | null }) => void;
+  onCreateProject?: (name: string) => Promise<Project>;
   onMarkDone?: (itemId: string) => void;
   onDrop?: (itemId: string) => void;
   onAddNote?: (itemId: string, content: string) => void;
@@ -26,10 +43,12 @@ interface DetailPanelProps {
 export function DetailPanel({
   item,
   notes,
+  projects,
   isOpen,
   onClose,
   onCreate,
   onUpdate,
+  onCreateProject,
   onMarkDone,
   onDrop,
   onAddNote,
@@ -43,6 +62,10 @@ export function DetailPanel({
   const [localColumn, setLocalColumn] = useState<ItemColumn>("Unclear");
   const [localImportance, setLocalImportance] = useState<ItemImportance>("M");
   const [localDeadline, setLocalDeadline] = useState<string>("");
+  const [localProjectId, setLocalProjectId] = useState<string>("none");
+  const [showCreateProject, setShowCreateProject] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [creatingProject, setCreatingProject] = useState(false);
 
   const isCreate = item === null;
 
@@ -54,6 +77,7 @@ export function DetailPanel({
       setLocalColumn(item.column);
       setLocalImportance(item.importance);
       setLocalDeadline(item.deadline ? new Date(item.deadline).toISOString().slice(0, 16) : "");
+      setLocalProjectId(item.projectId ?? "none");
       setError(null);
     } else if (isOpen) {
       setLocalTitle("");
@@ -62,9 +86,41 @@ export function DetailPanel({
       setLocalColumn("Unclear");
       setLocalImportance("M");
       setLocalDeadline("");
+      setLocalProjectId("none");
       setError(null);
     }
   }, [item, isOpen, isCreate]);
+
+  const handleProjectChange = (value: string) => {
+    setLocalProjectId(value);
+    const projectId = value === "none" ? null : value;
+    if (item) {
+      const selected = projects.find((p) => p.id === value);
+      onUpdate?.(item.id, {
+        projectId,
+        project: selected ? { id: selected.id, name: selected.name } : null,
+      });
+    }
+  };
+
+  const handleCreateProject = async () => {
+    if (!newProjectName.trim() || !onCreateProject) return;
+    setCreatingProject(true);
+    setError(null);
+    try {
+      const project = await onCreateProject(newProjectName.trim());
+      setLocalProjectId(project.id);
+      if (item) {
+        onUpdate?.(item.id, { projectId: project.id, project: { id: project.id, name: project.name } });
+      }
+      setShowCreateProject(false);
+      setNewProjectName("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create project");
+    } finally {
+      setCreatingProject(false);
+    }
+  };
 
   const handleMarkDone = () => {
     if (item.tag === "To Think About" && notes.length === 0) {
@@ -122,6 +178,7 @@ export function DetailPanel({
       column: localColumn,
       importance: localImportance,
       deadline: localDeadline ? new Date(localDeadline) : null,
+      projectId: localProjectId === "none" ? null : localProjectId,
     });
   };
 
@@ -255,6 +312,30 @@ export function DetailPanel({
                   className="text-sm"
                 />
               </div>
+              <div className="space-y-2 col-span-2">
+                <label className="text-xs font-medium text-muted-foreground">Project</label>
+                <div className="flex gap-2">
+                  <Select value={localProjectId} onValueChange={handleProjectChange}>
+                    <SelectTrigger className="text-sm flex-1"><SelectValue placeholder="No project" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No project</SelectItem>
+                      {projects.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="shrink-0"
+                    onClick={() => setShowCreateProject(true)}
+                    title="Create project"
+                  >
+                    <PlusIcon className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
             </div>
 
             {isCreate ? (
@@ -323,6 +404,29 @@ export function DetailPanel({
           </div>
         </div>
       </div>
+
+      <Dialog open={showCreateProject} onOpenChange={setShowCreateProject}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>New project</DialogTitle>
+          </DialogHeader>
+          <Input
+            value={newProjectName}
+            onChange={(e) => setNewProjectName(e.target.value)}
+            placeholder="Project name"
+            disabled={creatingProject}
+            onKeyDown={(e) => e.key === "Enter" && handleCreateProject()}
+          />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowCreateProject(false)} disabled={creatingProject}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateProject} disabled={creatingProject || !newProjectName.trim()}>
+              {creatingProject ? "Creating…" : "Create"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

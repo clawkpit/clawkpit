@@ -37,6 +37,13 @@ export interface Item {
   contentId?: string;
   /** The type of linked agent content. Only present when contentId is set. */
   contentType?: ItemContentType;
+  projectId?: string | null;
+  project?: { id: string; name: string } | null;
+}
+
+export interface Project {
+  id: string;
+  name: string;
 }
 
 export interface FilterState {
@@ -44,6 +51,7 @@ export interface FilterState {
   hasDeadline: "All" | "Yes" | "No";
   createdBy: ItemAuthor | "All";
   modifiedBy: ItemAuthor | "All";
+  project: "All" | "None" | string;
 }
 
 /** Backend tag (no spaces) */

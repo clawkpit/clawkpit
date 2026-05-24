@@ -32,6 +32,8 @@ export type Item = {
   contentId?: string | null;
   /** The type of linked agent content. Only present when contentId is set. */
   contentType?: AgentContentType | null;
+  projectId?: string | null;
+  project?: ItemProject | null;
 };
 
 export type AgentContentType = "markdown" | "form";
@@ -64,3 +66,11 @@ export type Note = {
   createdAt: string;
   updatedAt: string;
 };
+
+export type Project = {
+  id: string;
+  userId: string;
+  name: string;
+};
+
+export type ItemProject = Pick<Project, "id" | "name">;
