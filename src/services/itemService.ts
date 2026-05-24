@@ -23,6 +23,7 @@ type PrismaItemRow = {
   openedAt: Date;
   createdBy: string;
   modifiedBy: string;
+  assignedTo: string;
   hasAIChanges: boolean;
   contentId?: string | null;
   projectId?: string | null;
@@ -52,6 +53,7 @@ function mapItem(r: PrismaItemRow): Item {
     openedAt: r.openedAt.toISOString(),
     createdBy: r.createdBy as Item["createdBy"],
     modifiedBy: r.modifiedBy as Item["modifiedBy"],
+    assignedTo: r.assignedTo as Item["assignedTo"],
     hasAIChanges: r.hasAIChanges ?? false,
     contentId: r.contentId ?? null,
     contentType: (r.content?.type as Item["contentType"]) ?? null,
@@ -117,6 +119,7 @@ export async function createItem(userId: string, payload: any): Promise<Item> {
       openedAt: ts,
       createdBy,
       modifiedBy: createdBy,
+      assignedTo: payload.assignedTo ?? "User",
       hasAIChanges,
       contentId: payload.contentId ?? null,
       projectId: payload.projectId ?? null,
@@ -142,6 +145,7 @@ export async function listItems(
   if (query.importance) where.importance = query.importance;
   if (query.modifiedBy) where.modifiedBy = query.modifiedBy;
   if (query.createdBy) where.createdBy = query.createdBy;
+  if (query.assignedTo) where.assignedTo = query.assignedTo;
   if (query.urgency) where.urgency = query.urgency;
   if (query.noProject) where.projectId = null;
   else if (query.projectId) where.projectId = query.projectId;
@@ -220,6 +224,7 @@ export async function patchItem(userId: string, id: string, payload: any): Promi
       openedAt: new Date(merged.openedAt),
       updatedAt: new Date(merged.updatedAt),
       modifiedBy: merged.modifiedBy,
+      assignedTo: merged.assignedTo,
       hasAIChanges,
       projectId: merged.projectId,
     },

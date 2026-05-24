@@ -171,6 +171,7 @@ function mapItem(raw: {
   updatedAt: string;
   createdBy: string;
   modifiedBy: string;
+  assignedTo: string;
   hasAIChanges: boolean;
   contentId?: string | null;
   contentType?: string | null;
@@ -189,6 +190,7 @@ function mapItem(raw: {
     status: raw.status as Item["status"],
     createdBy: raw.createdBy as Item["createdBy"],
     modifiedBy: raw.modifiedBy as Item["modifiedBy"],
+    assignedTo: raw.assignedTo as Item["assignedTo"],
     modifiedAt: new Date(raw.updatedAt),
     hasAIChanges: raw.hasAIChanges,
     contentId: raw.contentId ?? undefined,
@@ -213,6 +215,7 @@ export interface ListItemsQuery {
   importance?: FilterState["importance"];
   createdBy?: FilterState["createdBy"];
   modifiedBy?: FilterState["modifiedBy"];
+  assignedTo?: FilterState["assignedTo"];
   projectId?: string;
   noProject?: boolean;
 }
@@ -226,6 +229,7 @@ export async function listItems(query: ListItemsQuery): Promise<{ items: Item[];
   if (query.importance && query.importance !== "All") params.set("importance", IMPORTANCE_TO_BACKEND[query.importance]);
   if (query.createdBy && query.createdBy !== "All") params.set("createdBy", query.createdBy);
   if (query.modifiedBy && query.modifiedBy !== "All") params.set("modifiedBy", query.modifiedBy);
+  if (query.assignedTo && query.assignedTo !== "All") params.set("assignedTo", query.assignedTo);
   if (query.projectId) params.set("projectId", query.projectId);
   if (query.noProject) params.set("noProject", "true");
   const data = await apiFetch<{ items: unknown[]; total: number }>(`/v1/items?${params}`);
@@ -246,6 +250,7 @@ export interface CreateItemPayload {
   deadline?: Date | null;
   status?: Item["status"];
   createdBy?: Item["createdBy"];
+  assignedTo?: Item["assignedTo"];
   projectId?: string | null;
 }
 
@@ -259,6 +264,7 @@ export async function createItem(payload: CreateItemPayload): Promise<Item> {
     deadline: payload.deadline ? payload.deadline.toISOString() : null,
     status: payload.status ?? "Active",
     createdBy: payload.createdBy ?? "User",
+    assignedTo: payload.assignedTo ?? "AI",
     projectId: payload.projectId ?? null,
   };
   const raw = await apiFetch<Parameters<typeof mapItem>[0]>("/v1/items", {
@@ -277,6 +283,7 @@ export interface UpdateItemPayload {
   deadline?: Date | null;
   status?: Item["status"];
   modifiedBy?: Item["modifiedBy"];
+  assignedTo?: Item["assignedTo"];
   hasAIChanges?: boolean;
   projectId?: string | null;
 }
@@ -291,6 +298,7 @@ export async function updateItem(id: string, payload: UpdateItemPayload): Promis
   if (payload.deadline !== undefined) body.deadline = payload.deadline ? payload.deadline.toISOString() : null;
   if (payload.status !== undefined) body.status = payload.status;
   if (payload.modifiedBy !== undefined) body.modifiedBy = payload.modifiedBy;
+  if (payload.assignedTo !== undefined) body.assignedTo = payload.assignedTo;
   if (payload.hasAIChanges !== undefined) body.hasAIChanges = payload.hasAIChanges;
   if (payload.projectId !== undefined) body.projectId = payload.projectId;
   const raw = await apiFetch<Parameters<typeof mapItem>[0]>(`/v1/items/${id}`, {

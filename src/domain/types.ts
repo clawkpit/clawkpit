@@ -26,6 +26,8 @@ export type Item = {
   openedAt: string;
   createdBy: Actor;
   modifiedBy: Actor;
+  /** Who should perform the next action on this item. */
+  assignedTo: Actor;
   /** True when the AI agent has created or modified this item since the user last opened it. */
   hasAIChanges: boolean;
   /** When set, item is backed by agent-pushed content (markdown or form). */

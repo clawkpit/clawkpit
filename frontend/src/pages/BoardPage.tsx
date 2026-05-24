@@ -45,6 +45,7 @@ const DEFAULT_FILTERS: FilterState = {
   hasDeadline: "All",
   createdBy: "All",
   modifiedBy: "All",
+  assignedTo: "All",
   project: "All",
 };
 
@@ -86,11 +87,12 @@ export function BoardPage() {
       importance: filters.importance !== "All" ? filters.importance : undefined,
       createdBy: filters.createdBy !== "All" ? filters.createdBy : undefined,
       modifiedBy: filters.modifiedBy !== "All" ? filters.modifiedBy : undefined,
+      assignedTo: filters.assignedTo !== "All" ? filters.assignedTo : undefined,
       projectId: filters.project !== "All" && filters.project !== "None" ? filters.project : undefined,
       noProject: filters.project === "None",
     });
     setItems(res.items);
-  }, [filters.importance, filters.createdBy, filters.modifiedBy, filters.project]);
+  }, [filters.importance, filters.createdBy, filters.modifiedBy, filters.assignedTo, filters.project]);
 
   const fetchProjects = useCallback(async () => {
     const list = await listProjects();
@@ -179,11 +181,13 @@ export function BoardPage() {
     importance: import("@/types/items").ItemImportance;
     deadline?: Date | null;
     projectId?: string | null;
+    assignedTo?: import("@/types/items").ItemAuthor;
   }) => {
     await createItem({
       ...payload,
       status: "Active",
       createdBy: "User",
+      assignedTo: payload.assignedTo ?? "AI",
     });
     handleClosePanel();
     fetchItems();

@@ -290,6 +290,20 @@ describe("Clawkpit API", () => {
       expect(byAI.body.items.map((i: any) => i.title)).toEqual(["By AI"]);
     });
 
+    it("filters by assignedTo", async () => {
+      const agent = await login();
+      await agent.post("/api/v1/items").send({ title: "For me", assignedTo: "User" });
+      await agent.post("/api/v1/items").send({ title: "For agent" });
+
+      const forUser = await agent.get("/api/v1/items?status=Active&assignedTo=User");
+      expect(forUser.status).toBe(200);
+      expect(forUser.body.items.map((i: any) => i.title)).toEqual(["For me"]);
+
+      const forAI = await agent.get("/api/v1/items?status=Active&assignedTo=AI");
+      expect(forAI.status).toBe(200);
+      expect(forAI.body.items.map((i: any) => i.title)).toEqual(["For agent"]);
+    });
+
     it("filters by modifiedBy", async () => {
       const agent = await login();
       await agent.post("/api/v1/items").send({ title: "Only user" });
@@ -328,6 +342,7 @@ describe("Clawkpit API", () => {
       expect(getItem.status).toBe(200);
       expect(getItem.body.tag).toBe("ToRead");
       expect(getItem.body.contentId).toBe(push.body.markdownId);
+      expect(getItem.body.assignedTo).toBe("User");
     });
 
     it("markdown idempotency: same externalId returns same markdownId and only one item", async () => {
@@ -645,11 +660,52 @@ describe("Clawkpit API", () => {
       const res = await request(app)
         .post("/api/v1/items")
         .set("Authorization", `Bearer ${apiKey}`)
-        .send({ title: "Agent item" });
+        .send({ title: "Agent item", assignedTo: "AI" });
       expect(res.status).toBe(201);
       expect(res.body.createdBy).toBe("AI");
       expect(res.body.modifiedBy).toBe("AI");
+      expect(res.body.assignedTo).toBe("AI");
       expect(res.body.hasAIChanges).toBe(true);
+    });
+
+    it("requires assignedTo for API-key item create", async () => {
+      const session = await login();
+      const keyRes = await session.post("/api/me/keys").send({});
+      const apiKey = keyRes.body.key;
+
+      const res = await request(app)
+        .post("/api/v1/items")
+        .set("Authorization", `Bearer ${apiKey}`)
+        .send({ title: "Missing assignee" });
+      expect(res.status).toBe(400);
+    });
+
+    it("allows API-key create with explicit assignedTo User", async () => {
+      const session = await login();
+      const keyRes = await session.post("/api/me/keys").send({});
+      const apiKey = keyRes.body.key;
+
+      const res = await request(app)
+        .post("/api/v1/items")
+        .set("Authorization", `Bearer ${apiKey}`)
+        .send({ title: "For human", assignedTo: "User" });
+      expect(res.status).toBe(201);
+      expect(res.body.assignedTo).toBe("User");
+    });
+
+    it("defaults assignedTo to AI for session item create", async () => {
+      const agent = await login();
+      const res = await agent.post("/api/v1/items").send({ title: "Delegated to agent" });
+      expect(res.status).toBe(201);
+      expect(res.body.assignedTo).toBe("AI");
+    });
+
+    it("patches assignedTo", async () => {
+      const agent = await login();
+      const created = await agent.post("/api/v1/items").send({ title: "Reassign me", assignedTo: "AI" });
+      const patched = await agent.patch(`/api/v1/items/${created.body.id}`).send({ assignedTo: "User" });
+      expect(patched.status).toBe(200);
+      expect(patched.body.assignedTo).toBe("User");
     });
 
     it("defaults modifiedBy to AI for API-key PATCH", async () => {
@@ -696,9 +752,10 @@ describe("Clawkpit API", () => {
       const res = await request(app)
         .post("/api/v1/items")
         .set("Authorization", `Bearer ${apiKey}`)
-        .send({ title: "Explicit user item", createdBy: "User" });
+        .send({ title: "Explicit user item", createdBy: "User", assignedTo: "User" });
       expect(res.status).toBe(201);
       expect(res.body.createdBy).toBe("User");
+      expect(res.body.assignedTo).toBe("User");
       expect(res.body.hasAIChanges).toBe(false);
     });
 

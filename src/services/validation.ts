@@ -16,6 +16,7 @@ export const createItemSchema = z.object({
   deadline: z.string().datetime().nullable().optional(),
   status: status.default("Active"),
   createdBy: actor.default("User"),
+  assignedTo: actor.optional(),
   projectId: z.string().uuid().nullable().optional()
 });
 
@@ -29,6 +30,7 @@ export const updateItemSchema = z.object({
   status: status.optional(),
   openedAt: z.string().datetime().optional(),
   modifiedBy: actor.optional(),
+  assignedTo: actor.optional(),
   hasAIChanges: z.boolean().optional(),
   projectId: z.string().uuid().nullable().optional(),
 }).refine((v) => Object.keys(v).length > 0, "No fields provided");
@@ -41,6 +43,7 @@ export const listItemsQuerySchema = z.object({
   deadlineAfter: z.string().datetime().optional(),
   modifiedBy: actor.optional(),
   createdBy: actor.optional(),
+  assignedTo: actor.optional(),
   urgency: urgency.optional(),
   projectId: z.string().uuid().optional(),
   noProject: z

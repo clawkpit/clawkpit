@@ -69,6 +69,7 @@ model Item {
   openedAt    DateTime @map("opened_at")
   createdBy     String   @map("created_by")
   modifiedBy    String   @map("modified_by")
+  assignedTo    String   @default("User") @map("assigned_to")
   hasAIChanges  Boolean  @default(false) @map("has_ai_changes")
   contentId     String?  @map("content_id")
   projectId     String?  @map("project_id")
