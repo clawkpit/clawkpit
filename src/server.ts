@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { createServer } from "node:http";
 import { migrate } from "./db/prisma";
 import { createApp } from "./app";

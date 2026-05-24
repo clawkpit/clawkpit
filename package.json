@@ -6,9 +6,11 @@
     "doc": "docs"
   },
   "scripts": {
-    "dev": "concurrently -n server,frontend -c blue,green \"npm run dev:server\" \"npm run dev:frontend\"",
+    "dev": "concurrently -n server,frontend -c blue,green \"npm run dev:server\" \"npm run dev:frontend:wait\"",
     "dev:server": "tsx src/server.ts",
     "dev:frontend": "npm run dev --prefix frontend",
+    "dev:frontend:wait": "wait-on http://localhost:3000 -t 30000 && npm run dev:frontend",
+    "postinstall": "npm install --prefix frontend",
     "build": "tsc -p tsconfig.build.json",
     "build:frontend": "npm install --prefix frontend && npm run build --prefix frontend",
     "start": "node dist/server.js",
@@ -24,6 +26,7 @@
   "type": "commonjs",
   "dependencies": {
     "@prisma/client": "^6.9.0",
+    "dotenv": "^16.4.5",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "express": "^5.2.1",
@@ -45,6 +48,7 @@
     "supertest": "^7.2.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.18"
+    "vitest": "^4.0.18",
+    "wait-on": "^9.0.4"
   }
 }
