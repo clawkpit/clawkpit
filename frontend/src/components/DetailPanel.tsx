@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 interface DetailPanelProps {
   item: Item | null;
   notes: ItemNote[];
-  projects: Project[];
+  projects?: Project[];
   isOpen: boolean;
   onClose: () => void;
   onCreate?: (payload: {
@@ -56,6 +56,7 @@ export function DetailPanel({
   onEditNote,
   onContentAction,
 }: DetailPanelProps) {
+  const projectsList = projects ?? [];
   const [error, setError] = useState<string | null>(null);
   const [localTitle, setLocalTitle] = useState("");
   const [localDescription, setLocalDescription] = useState("");
@@ -339,7 +340,7 @@ export function DetailPanel({
                     <SelectTrigger className="text-sm flex-1"><SelectValue placeholder="No project" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">No project</SelectItem>
-                      {projects.map((p) => (
+                      {projectsList.map((p) => (
                         <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                       ))}
                     </SelectContent>

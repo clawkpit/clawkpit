@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
-import type { Item, ItemNote } from "@/types/items";
+import type { Item, ItemNote, Project } from "@/types/items";
 import type { ItemContentType } from "@/types/items";
-import { listItems, listNotes, addNote, updateNote, markDone, dropItem, updateItem } from "@/api/client";
+import { listItems, listNotes, addNote, updateNote, markDone, dropItem, updateItem, listProjects, createProject } from "@/api/client";
 import { BoardCard } from "@/components/board/Card";
 import { DetailPanel } from "@/components/DetailPanel";
 import { FormModal } from "@/components/FormModal";
@@ -20,6 +20,7 @@ export function ArchivePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<ArchiveStatusFilter>("All");
   const [items, setItems] = useState<Item[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [panelNotes, setPanelNotes] = useState<ItemNote[]>([]);
@@ -44,6 +45,12 @@ export function ArchivePage() {
   useEffect(() => {
     loadItems();
   }, [statusFilter]);
+
+  useEffect(() => {
+    listProjects()
+      .then((list) => setProjects(list))
+      .catch(() => {});
+  }, []);
 
   const filteredItems = useMemo(() => {
     let list = items;
@@ -137,6 +144,12 @@ export function ArchivePage() {
   const handleContentModalClose = () => {
     setContentModal(null);
     loadItems();
+  };
+
+  const handleCreateProject = async (name: string) => {
+    const project = await createProject(name);
+    setProjects((prev) => [...prev, project].sort((a, b) => a.name.localeCompare(b.name)));
+    return project;
   };
 
   return (
@@ -261,9 +274,11 @@ export function ArchivePage() {
       <DetailPanel
         item={selectedItem}
         notes={panelNotes}
+        projects={projects}
         isOpen={isPanelOpen}
         onClose={handleClosePanel}
         onUpdate={handleUpdate}
+        onCreateProject={handleCreateProject}
         onMarkDone={handleMarkDone}
         onDrop={handleDrop}
         onAddNote={handleAddNote}
