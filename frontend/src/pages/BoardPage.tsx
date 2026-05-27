@@ -307,7 +307,7 @@ export function BoardPage() {
                 <SettingsIcon className="w-4 h-4" />
               </Button>
             </div>
-            <Button size="sm" className="h-8 md:h-9" onClick={handleNewItem}>
+            <Button type="button" size="sm" className="h-8 md:h-9" onClick={handleNewItem}>
               <PlusIcon className="w-4 h-4 md:mr-2" />
               <span className="hidden md:inline">New Item</span>
             </Button>

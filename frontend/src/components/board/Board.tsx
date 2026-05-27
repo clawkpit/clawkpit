@@ -83,7 +83,7 @@ export function Board({
     touchEndX.current = e.touches[0].clientX;
   };
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = (e: React.TouchEvent) => {
     const startTarget = touchStartTarget.current;
     const isTouchOnCard =
       startTarget instanceof Element && startTarget.closest("[data-board-card]");
@@ -93,7 +93,8 @@ export function Board({
       touchStartTarget.current = null;
       return;
     }
-    const swipeDistance = touchStartX.current - touchEndX.current;
+    const endX = e.changedTouches[0]?.clientX ?? touchEndX.current;
+    const swipeDistance = touchStartX.current - endX;
     if (swipeDistance > minSwipeDistance && canGoNext) handleNext();
     else if (swipeDistance < -minSwipeDistance && canGoPrev) handlePrev();
     touchStartX.current = 0;

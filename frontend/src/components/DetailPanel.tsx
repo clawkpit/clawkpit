@@ -361,7 +361,7 @@ export function DetailPanel({
 
             {isCreate ? (
               <div className="pt-4 border-t border-border">
-                <Button onClick={handleCreate} className="w-full">
+                <Button type="button" onClick={handleCreate} className="w-full">
                   <CheckIcon className="w-4 h-4 mr-2" />
                   Create Item
                 </Button>
