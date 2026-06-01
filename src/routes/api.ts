@@ -53,6 +53,7 @@ import {
 import { addNote, createItem, dropItem, getItem, listItems, listNotes, markDone, patchItem, updateNote } from "../services/itemService";
 import { createProject, listProjects } from "../services/projectService";
 import { broadcastToUser } from "../services/boardBroadcast";
+import type { Item } from "../domain/types";
 import { getPushPublicKey, hasPushSupportConfigured, removePushSubscription, savePushSubscription, sendItemPushNotification } from "../services/pushService";
 import { sendApiError, ApiErrorCode } from "../services/apiError";
 import {
@@ -227,9 +228,9 @@ function applyAssignedTo(req: any, payload: Record<string, unknown>, rawPayload:
   return null;
 }
 
-function queueItemPush(userId: string, item: { id: string; humanId: number; title: string; hasAIChanges: boolean }, kind: "created" | "updated" | "note"): void {
+function queueItemPush(userId: string, item: Item, kind: "created" | "updated" | "note"): void {
   if (!item.hasAIChanges) return;
-  void sendItemPushNotification(userId, item as any, kind).catch((error) => {
+  void sendItemPushNotification(userId, item, kind).catch((error) => {
     console.error("[push] failed to send notification", error);
   });
 }
@@ -296,6 +297,9 @@ api.post("/push/subscribe", async (req, res) => {
   } catch (e: any) {
     if (e.message === "PUSH_NOT_CONFIGURED") {
       return sendApiError(res, 503, ApiErrorCode.INTERNAL_ERROR, "Push notifications are not configured on this server.");
+    }
+    if (e.message === "PUSH_SUBSCRIPTION_CONFLICT") {
+      return sendApiError(res, 403, ApiErrorCode.FORBIDDEN, "This push endpoint is registered to another account.");
     }
     throw e;
   }

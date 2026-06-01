@@ -24,8 +24,17 @@ function isVisibleWindowClient(client: Client): client is WindowClient {
   return "visibilityState" in client && (client as WindowClient).visibilityState === "visible";
 }
 
+function parsePushPayload(data: PushMessageData | null): PushPayload | undefined {
+  if (!data) return undefined;
+  try {
+    return data.json() as PushPayload;
+  } catch {
+    return undefined;
+  }
+}
+
 self.addEventListener("push", (event) => {
-  const payload = event.data?.json() as PushPayload | undefined;
+  const payload = parsePushPayload(event.data);
   const notification = {
     title: payload?.title ?? "Clawkpit update",
     body: payload?.body ?? "AI changed an item.",

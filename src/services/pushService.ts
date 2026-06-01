@@ -47,7 +47,9 @@ function normalizeExpirationTime(value: number | null | undefined): Date | null 
   return Number.isNaN(expiration.getTime()) ? null : expiration;
 }
 
-function buildNotificationPayload(item: Item, kind: ItemPushKind) {
+export type ItemPushTarget = Pick<Item, "id" | "humanId" | "title">;
+
+function buildNotificationPayload(item: ItemPushTarget, kind: ItemPushKind) {
   const prefix =
     kind === "created" ? "AI created" : kind === "note" ? "AI added a note to" : "AI updated";
 
@@ -63,7 +65,7 @@ function buildNotificationPayload(item: Item, kind: ItemPushKind) {
 }
 
 export function getPushPublicKey(): string | null {
-  return VAPID_PUBLIC_KEY || null;
+  return isPushConfigured() ? VAPID_PUBLIC_KEY : null;
 }
 
 export function hasPushSupportConfigured(): boolean {
@@ -74,6 +76,15 @@ export async function savePushSubscription(userId: string, subscription: PushSub
   if (!isPushConfigured()) throw new Error("PUSH_NOT_CONFIGURED");
   configureWebPush();
   const expirationTime = normalizeExpirationTime(subscription.expirationTime);
+
+  const existing = await prisma.pushSubscription.findUnique({
+    where: { endpoint: subscription.endpoint },
+    select: { userId: true },
+  });
+  if (existing && existing.userId !== userId) {
+    throw new Error("PUSH_SUBSCRIPTION_CONFLICT");
+  }
+
   await prisma.pushSubscription.upsert({
     where: { endpoint: subscription.endpoint },
     create: {
@@ -87,7 +98,6 @@ export async function savePushSubscription(userId: string, subscription: PushSub
       updatedAt: new Date(),
     },
     update: {
-      userId,
       p256dh: subscription.keys.p256dh,
       auth: subscription.keys.auth,
       expirationTime,
@@ -125,7 +135,7 @@ async function sendToSubscription(subscription: { endpoint: string; p256dh: stri
   }
 }
 
-export async function sendItemPushNotification(userId: string, item: Item, kind: ItemPushKind): Promise<number> {
+export async function sendItemPushNotification(userId: string, item: ItemPushTarget, kind: ItemPushKind): Promise<number> {
   if (!isPushConfigured()) return 0;
 
   const subscriptions = await prisma.pushSubscription.findMany({
@@ -135,6 +145,10 @@ export async function sendItemPushNotification(userId: string, item: Item, kind:
   if (subscriptions.length === 0) return 0;
 
   const payload = buildNotificationPayload(item, kind);
-  const results = await Promise.allSettled(subscriptions.map((subscription) => sendToSubscription(subscription, payload)));
-  return results.filter((result) => result.status === "fulfilled" && result.value).length;
+  const results = await Promise.allSettled(
+    subscriptions.map((subscription) => sendToSubscription(subscription, payload))
+  );
+  return results.filter(
+    (result): result is PromiseFulfilledResult<boolean> => result.status === "fulfilled" && result.value
+  ).length;
 }
