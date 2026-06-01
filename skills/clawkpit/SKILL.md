@@ -11,7 +11,7 @@ Act as the user's second brain and personal assistant for Clawkpit. Keep the boa
 
 If your environment supports MCP (Model Context Protocol), use the Clawkpit MCP server at `{CLAWKPIT_BASE_URL}/mcp` with the stored API key. Read [mcp.md](mcp.md) for transport, tools, and configuration.
 
-Fall back to the REST API in [api.md](api.md) only when MCP is unavailable (e.g. OpenClaw slash commands without an MCP client).
+Fall back to the REST API in [api.md](api.md) only when MCP is unavailable (e.g. harness slash commands without an MCP client).
 
 Use Clawkpit to create tasks, reminders (items with deadlines), form requests, reading items, and user-facing messages; call `get_next_action` when deciding what the user should do next; mark tasks complete when done.
 
@@ -29,7 +29,7 @@ Handle the slash command `/clawkpit`. Parse the raw args for the subcommand and 
 
 - **connect**: If a token is already stored, report that the user is already connected and suggest `/clawkpit status`. Otherwise parse an optional email from `/clawkpit connect [email]`; if absent, ask for the account email. Call the device-flow start endpoint once, then immediately show only the returned display code and URL to open. Do not wait for authorization before surfacing the code. If you continue polling, do it in the background after the code is already shown. Store the returned token locally and confirm success without echoing any secret.
 - **status**: Call `GET /api/me` with the stored token. Report the connected account without printing the token. If auth fails, direct the user to `/clawkpit connect`.
-- **install**: Direct the user to `https://your-clawkpit-instance.example.com/openclaw.md`.
+- **install**: Direct the user to `{CLAWKPIT_BASE_URL}/agent.md` (hosted public docs: `https://clawkpit.com/agent.md`).
 - **inbox**: List active items for the **human** (`GET /api/v1/items?status=Active&assignedTo=User`). Return a short summary and a compact list with id, title, urgency, deadline, and tag.
 - **today**: List active items for the **human** that are due today or overdue (`assignedTo=User`; filter deadlines client-side or with `deadlineBefore` / `deadlineAfter`). Return a short summary and a compact list.
 - **focus**: For the **human**, fetch active items with `assignedTo=User`, prioritize nearest deadlines and higher importance (the API sorts by deadline, then importance), and suggest the single best next task with a short rationale.

@@ -1,13 +1,13 @@
 # Clawkpit API reference
 
-**MCP (recommended for MCP-capable agents):** See [mcp.md](mcp.md) for the Streamable HTTP endpoint at `/mcp`, tool list, and client setup. This REST reference remains the source of truth for OpenClaw slash commands and fallback integrations.
+**MCP (recommended for MCP-capable agents):** See [mcp.md](mcp.md) for the Streamable HTTP endpoint at `/mcp`, tool list, and client setup. This REST reference remains the source of truth for harness slash commands (e.g. OpenClaw `/clawkpit`) and fallback integrations.
 
-Base URL: use `CLAWKPIT_BASE_URL` from environment or config (e.g. `https://your-clawkpit-instance.example.com` for self-hosted). All paths below are relative to the base (e.g. base + `/api/me`).
+Base URL: use `CLAWKPIT_BASE_URL` from environment or config (e.g. `https://your-clawkpit-instance.example.com` for self-hosted; hosted API: `https://app.clawkpit.com`). All paths below are relative to the base (e.g. base + `/api/me`).
 
 ## Authentication (items and notes)
 
 - **Header**: `Authorization: Bearer <API_KEY>` or `X-API-Key: <API_KEY>`
-- Token is obtained via the **device flow** (`/clawkpit connect`) and stored by the skill, or from env `CLAWKPIT_API_TOKEN` or OpenClaw config `skills.entries.clawkpit.env.CLAWKPIT_API_TOKEN`.
+- Token is obtained via the **device flow** (`/clawkpit connect`) and stored by the skill, or from env `CLAWKPIT_API_TOKEN` or harness config (e.g. OpenClaw `skills.entries.clawkpit.env.CLAWKPIT_API_TOKEN`).
 - Never log or echo the token.
 
 **Agent actor rule:** Agents should act as `AI`, not `User`. When using an API key, if you omit `createdBy`, `modifiedBy`, `author`, or `actor`, the server defaults them to `"AI"`. Agents may send `"AI"` explicitly, but should not send `"User"`.
@@ -18,12 +18,12 @@ Base URL: use `CLAWKPIT_BASE_URL` from environment or config (e.g. `https://your
 
 `POST /api/openclaw/device/start` is the only request needed to generate the display code. Return it to the user immediately; do not wait for authorization before showing the code. Polling is separate and can continue in the background after the code is already surfaced.
 
-No auth for start and poll; confirm requires a **logged-in session** (cookie).
+No auth for start and poll; confirm requires a **logged-in session** (cookie) whose email matches the email used at start.
 
 | Method | Path | Auth | Body | Response |
 |--------|------|------|------|----------|
 | POST | `/api/openclaw/device/start` | None | `{ "email": "user@example.com" }` | `{ "display_code": "XXXX-XXXX", "device_code": "<opaque>", "expires_at": "<ISO>" }`. 404 if no account for email. |
-| POST | `/api/openclaw/device/confirm` | **Session only** (cookie) | `{ "display_code": "XXXX-XXXX" }` | `{ "ok": true, "message": "OpenClaw connected." }`. 401 if not signed in; 404/400 if invalid or expired code. |
+| POST | `/api/openclaw/device/confirm` | **Session only** (cookie) | `{ "display_code": "XXXX-XXXX" }` | `{ "ok": true, "message": "Agent connected." }`. 401 if not signed in; 403 if signed-in email does not match the code; 404/400 if invalid or expired code. |
 | POST | `/api/openclaw/device/poll` | None | `{ "device_code": "<from start>" }` | `{ "status": "pending" }` or `{ "status": "authorized", "api_token": "<key>" }`. 410 when expired or already consumed. Poll rate-limited per device_code. |
 
 - Codes expire in 10 minutes. Display code is one-time use; after returning `api_token` once, the device is consumed.

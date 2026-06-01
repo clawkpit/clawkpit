@@ -136,7 +136,7 @@ api.post("/auth/confirm-email-change", async (req, res) => {
   }
 });
 
-// OpenClaw device flow (no auth for start/poll; confirm requires session only)
+// Agent device flow (no auth for start/poll; confirm requires session only)
 api.post("/openclaw/device/start", async (req, res) => {
   const parsed = openclawDeviceStartSchema.safeParse(req.body);
   if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
@@ -173,7 +173,7 @@ api.post("/openclaw/device/poll", async (req, res) => {
 
 api.post("/openclaw/device/confirm", async (req, res) => {
   const sessionUser = await getUserFromSession(req.cookies?.session);
-  if (!sessionUser) return sendApiError(res, 401, ApiErrorCode.UNAUTHORIZED, "Sign in to connect OpenClaw. Session required.");
+  if (!sessionUser) return sendApiError(res, 401, ApiErrorCode.UNAUTHORIZED, "Sign in to connect your agent. Session required.");
 
   const ip = (req as any).ip || req.socket?.remoteAddress || "unknown";
   const rate = consumeConfirmRateLimit(ip);
@@ -187,9 +187,17 @@ api.post("/openclaw/device/confirm", async (req, res) => {
 
   try {
     await deviceConfirm(parsed.data.display_code, sessionUser.id);
-    return res.json({ ok: true, message: "OpenClaw connected." });
+    return res.json({ ok: true, message: "Agent connected." });
   } catch (e: any) {
     if (e.message === "INVALID_CODE") return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Invalid or unknown code.");
+    if (e.message === "EMAIL_MISMATCH") {
+      return sendApiError(
+        res,
+        403,
+        ApiErrorCode.FORBIDDEN,
+        "This code was issued for a different email. Sign in with the account that matches your agent."
+      );
+    }
     if (e.message === "CODE_ALREADY_USED") return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "This code was already used.");
     if (e.message === "CODE_EXPIRED") return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Code expired. Start a new connection from your agent.");
     throw e;

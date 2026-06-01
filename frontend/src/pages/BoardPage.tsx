@@ -37,6 +37,13 @@ import {
 } from "@/components/ui/dialog";
 import { useMinuteTick } from "@/hooks/useMinuteTick";
 import { useBoardSocket } from "@/hooks/useBoardSocket";
+import {
+  AGENT_SKILL_INSTALL_COMMAND,
+  agentDocsUrl,
+  clearShowAgentConnectAfterLogin,
+  getAgentDocsBaseUrl,
+  peekShowAgentConnectAfterLogin,
+} from "@/lib/agentDocs";
 
 type ViewMode = "urgency" | "tag";
 
@@ -53,9 +60,9 @@ const APP_BASE_URL =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_APP_URL) ||
   (typeof window !== "undefined" ? window.location.origin : "");
 
-/** Base URL for the OpenClaw install page (openclaw.md). When the install page is on a different domain (e.g. landing at clawkpit.com, app at app.clawkpit.com), set VITE_OPENCLAW_DOCS_URL to the landing URL. */
-const OPENCLAW_DOCS_BASE_URL =
-  (typeof import.meta !== "undefined" && import.meta.env?.VITE_OPENCLAW_DOCS_URL) || APP_BASE_URL;
+const AGENT_DOCS_BASE_URL = getAgentDocsBaseUrl(APP_BASE_URL);
+const AGENT_INSTALL_COMMAND = AGENT_SKILL_INSTALL_COMMAND(AGENT_DOCS_BASE_URL);
+const AGENT_MCP_DOCS_URL = agentDocsUrl(AGENT_DOCS_BASE_URL, "agent/references/mcp.md");
 
 export function BoardPage() {
   useMinuteTick(); // refresh time-left / overdue hints every minute
@@ -121,11 +128,11 @@ export function BoardPage() {
   useEffect(() => {
     if (!user || typeof window === "undefined") return;
     let cancelled = false;
-    const showAfterLogin = window.sessionStorage.getItem("clawkpit_show_openclaw_after_login");
+    const showAfterLogin = peekShowAgentConnectAfterLogin();
     listApiKeys()
       .then((keys) => {
         if (!cancelled && keys.length === 0 && showAfterLogin) {
-          window.sessionStorage.removeItem("clawkpit_show_openclaw_after_login");
+          clearShowAgentConnectAfterLogin();
           setShowOpenclawModal(true);
         }
       })
@@ -406,27 +413,27 @@ export function BoardPage() {
       <Dialog open={showOpenclawModal} onOpenChange={(open) => !open && handleOpenclawModalDismiss()}>
         <DialogContent className="sm:max-w-lg max-w-[calc(100vw-2rem)]" showCloseButton={true}>
           <DialogHeader>
-            <DialogTitle>Connect OpenClaw</DialogTitle>
+            <DialogTitle>Connect your agent</DialogTitle>
             <DialogDescription>
-              Connect your OpenClaw agent to this Clawkpit account so it can manage your board. MCP-capable clients can also use <code className="text-xs">{typeof window !== "undefined" ? `${window.location.origin}/mcp` : "/mcp"}</code> with your API key (see {OPENCLAW_DOCS_BASE_URL}/openclaw/references/mcp.md). Follow the steps below; each command can be copied with one click.
+              Connect an agent harness (OpenClaw, Hermes, or similar) to this Clawkpit account so it can manage your board. MCP-capable clients can also use <code className="text-xs">{typeof window !== "undefined" ? `${window.location.origin}/mcp` : "/mcp"}</code> with your API key (see {AGENT_MCP_DOCS_URL}). Follow the steps below; each command can be copied with one click.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 min-w-0">
             <div className="min-w-0">
               <p className="text-xs font-medium text-foreground mb-1">1. Install the skill (if needed)</p>
               <p className="text-xs text-muted-foreground mb-1.5">
-                If your agent doesn&apos;t have the Clawkpit skill yet, ask it to open the onboarding page and follow the install steps. Copy and paste this into OpenClaw:
+                If your agent doesn&apos;t have the Clawkpit skill yet, ask it to open the onboarding page and follow the install steps. Copy and paste this into your agent (OpenClaw, Hermes, etc.):
               </p>
               <button
                 type="button"
-                onClick={() => handleCopyOpenclawModalCommand(`Open ${OPENCLAW_DOCS_BASE_URL}/openclaw.md and follow the steps to install the Clawkpit skill.`, 1)}
+                onClick={() => handleCopyOpenclawModalCommand(AGENT_INSTALL_COMMAND, 1)}
                 className={cn(
                   "w-full flex items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-left min-w-0",
                   "hover:bg-muted/50 transition-colors"
                 )}
               >
                 <code className="text-xs font-mono text-foreground truncate min-w-0 flex-1">
-                  {`Open ${OPENCLAW_DOCS_BASE_URL}/openclaw.md and follow the steps to install the Clawkpit skill.`}
+                  {AGENT_INSTALL_COMMAND}
                 </code>
                 {openclawModalCopiedStep === 1 ? (
                   <span className="text-xs text-green-600 dark:text-green-400 shrink-0">Copied!</span>
@@ -439,7 +446,7 @@ export function BoardPage() {
             <div className="min-w-0">
               <p className="text-xs font-medium text-foreground mb-1">2. Connect your bot to this account</p>
               <p className="text-xs text-muted-foreground mb-1.5">
-                In OpenClaw, run the command below (it includes your email so the agent can start the flow right away).
+                In your harness, run the command below (it includes your email so the agent can start the flow right away).
               </p>
               <button
                 type="button"

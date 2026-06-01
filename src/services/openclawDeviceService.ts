@@ -62,14 +62,21 @@ export async function deviceStart(
 
 export async function deviceConfirm(displayCode: string, userId: string): Promise<void> {
   const row = await prisma.openclawDevice.findFirst({
-    where: { displayCode: displayCode.trim() },
+    where: { displayCode: displayCode.trim().toUpperCase() },
   });
 
   if (!row) throw new Error("INVALID_CODE");
   if (row.status !== "pending") throw new Error("CODE_ALREADY_USED");
   if (row.expiresAt < now()) throw new Error("CODE_EXPIRED");
 
-  const { id: keyId, key } = await createKey(userId, "OpenClaw device");
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { email: true },
+  });
+  if (!user) throw new Error("USER_NOT_FOUND");
+  if (row.email !== user.email.trim().toLowerCase()) throw new Error("EMAIL_MISMATCH");
+
+  const { id: keyId, key } = await createKey(userId, "Agent device");
 
   await prisma.openclawDevice.update({
     where: { id: row.id },

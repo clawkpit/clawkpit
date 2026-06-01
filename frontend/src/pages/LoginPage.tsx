@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Mail } from "lucide-react";
 import { useAuth, requestMagicLink, consumeMagicLink, getMe } from "@/api/client";
+import { markShowAgentConnectAfterLogin } from "@/lib/agentDocs";
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -29,7 +30,7 @@ export function LoginPage() {
       .then((user) => {
         if (user) {
           setUser(user);
-          sessionStorage.setItem("clawkpit_show_openclaw_after_login", "1");
+          markShowAgentConnectAfterLogin();
           navigate("/board", { replace: true });
         }
       })
@@ -65,7 +66,7 @@ export function LoginPage() {
       const user = await getMe();
       if (user) {
         setUser(user);
-        sessionStorage.setItem("clawkpit_show_openclaw_after_login", "1");
+        markShowAgentConnectAfterLogin();
         navigate("/board", { replace: true });
       }
     } catch (e) {

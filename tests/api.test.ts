@@ -901,4 +901,21 @@ describe("Clawkpit API", () => {
       expect(meAfter.body.user.email).toBe("new@example.com");
     });
   });
+
+  it("agent device confirm requires matching session email", async () => {
+    const aliceAgent = await login("alice@example.com");
+    const bobAgent = await login("bob@example.com");
+
+    const start = await request(app).post("/api/openclaw/device/start").send({ email: "alice@example.com" });
+    expect(start.status).toBe(200);
+    const displayCode = start.body.display_code as string;
+
+    const mismatch = await bobAgent.post("/api/openclaw/device/confirm").send({ display_code: displayCode });
+    expect(mismatch.status).toBe(403);
+    expect(mismatch.body.error.code).toBe("FORBIDDEN");
+
+    const ok = await aliceAgent.post("/api/openclaw/device/confirm").send({ display_code: displayCode });
+    expect(ok.status).toBe(200);
+    expect(ok.body.message).toBe("Agent connected.");
+  });
 });

@@ -1,6 +1,6 @@
 # Clawkpit MCP reference
 
-**Recommended integration** for MCP-capable agents (Cursor, Claude Desktop, etc.). The REST API in [api.md](api.md) remains available for OpenClaw slash commands and as a fallback when MCP is unavailable.
+**Recommended integration** for MCP-capable agents (Cursor, Claude Desktop, OpenClaw with MCP, Hermes, etc.). The REST API in [api.md](api.md) remains available for harness slash commands and as a fallback when MCP is unavailable.
 
 ## Endpoint and transport
 
@@ -14,7 +14,7 @@
 Use the same API key as REST:
 
 - Header: `Authorization: Bearer <API_KEY>` or `X-API-Key: <API_KEY>`
-- Obtain via OpenClaw device flow (`/clawkpit connect`) or Clawkpit Settings → API keys
+- Obtain via the device flow (`/clawkpit connect` in OpenClaw and similar harnesses) or Clawkpit Settings → API keys
 - Never log, echo, or expose the key in chat
 
 MCP rejects unauthenticated requests with HTTP `401`. Session cookies are not accepted on `/mcp`.
