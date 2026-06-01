@@ -14,6 +14,7 @@ type PushPayload = {
   body?: string;
   url?: string;
   tag?: string;
+  itemId?: string;
 };
 
 clientsClaim();

@@ -49,6 +49,10 @@ function normalizeExpirationTime(value: number | null | undefined): Date | null 
 
 export type ItemPushTarget = Pick<Item, "id" | "humanId" | "title">;
 
+export function boardItemDeepLinkUrl(itemId: string): string {
+  return `/board?item=${encodeURIComponent(itemId)}`;
+}
+
 function buildNotificationPayload(item: ItemPushTarget, kind: ItemPushKind) {
   const prefix =
     kind === "created" ? "AI created" : kind === "note" ? "AI added a note to" : "AI updated";
@@ -57,7 +61,7 @@ function buildNotificationPayload(item: ItemPushTarget, kind: ItemPushKind) {
     title: `${prefix} item #${item.humanId}`,
     body: item.title,
     tag: `clawkpit-item-${item.id}`,
-    url: "/board",
+    url: boardItemDeepLinkUrl(item.id),
     itemId: item.id,
     humanId: item.humanId,
     kind,
