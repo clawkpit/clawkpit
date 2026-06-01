@@ -23,7 +23,7 @@ Open **http://localhost:5173**. In development, the API returns the magic-link t
 - **Frontend**: React, Vite, TypeScript, Tailwind CSS, Radix UI. SPA that talks to the same origin API.
 - **Database**: SQLite in development (`data/mico.sqlite`); PostgreSQL in production via `DATABASE_URL`.
 - **Auth**: Magic-link email (Resend in production), session cookies, API keys (Bearer or `X-API-Key`). OpenClaw device flow for connecting agents without pasting secrets.
-- **Where things live**: API routes in `src/routes/api.ts`, validation in `src/services/validation.ts`, business logic in `src/services/*.ts`, DB in `src/db/prisma.ts` and `prisma/`. Frontend in `frontend/src/`. OpenClaw skill docs in `skills/clawkpit/`.
+- **Where things live**: API routes in `src/routes/api.ts`, MCP in `src/mcp/`, validation in `src/services/validation.ts`, business logic in `src/services/*.ts`, DB in `src/db/prisma.ts` and `prisma/`. Frontend in `frontend/src/`. OpenClaw skill docs in `skills/clawkpit/`.
 
 See [docs/architecture.md](docs/architecture.md) for a fuller picture (data model, API design, auth flow).
 
@@ -44,6 +44,11 @@ Copy `.env.example` to `.env` and set values as needed.
 | `VAPID_PRIVATE_KEY` | Production (push) | — | Private VAPID key for web push notifications. |
 | `VAPID_SUBJECT` | Production (push) | — | Contact URI for VAPID, usually `mailto:you@example.com`. |
 | `VITE_APP_URL` | No | `window.location.origin` | Public URL shown in frontend (e.g. OpenClaw install command in Settings). Set at build time. |
+| `MCP_ENABLED` | No | `true` | Set to `false` to disable the `/mcp` endpoint. |
+| `MCP_RATE_LIMIT` | No | `120` | Max MCP tool calls per user per minute. |
+| `MCP_RATE_WINDOW_MS` | No | `60000` | Rate limit window in milliseconds. |
+| `MCP_ALLOWED_HOSTS` | No | — | Comma-separated hostnames allowed for `/mcp` in production (with `APP_BASE_URL` hostname). |
+| `MCP_HOST_GUARD` | No | auto | Set `true` to always enforce Host checks in production; `false` to disable. Default: enforce only when `APP_BASE_URL` or `MCP_ALLOWED_HOSTS` is set. |
 
 ## Database (Prisma)
 
@@ -55,6 +60,10 @@ Copy `.env.example` to `.env` and set values as needed.
 - Build: `npm run build` and `npm run build:frontend` (or your CI equivalent). Start with `npm start` (serves API and frontend from the same process).
 - Put the app behind HTTPS and a reverse proxy. Set `TRUST_PROXY=1` if you need correct client IPs for rate limiting. Set `CORS_ORIGIN` to the other origin(s) (e.g. `https://clawkpit.com`) if a separate site (e.g. landing page) needs to call the API with credentials to check login state.
 - For magic-link email in production, set `RESEND_API_KEY`, `APP_BASE_URL`, and optionally `MAGIC_LINK_FROM_EMAIL` (see [Resend](https://resend.com)). Without these, the request-link endpoint still responds but does not send email.
+
+## MCP (agents)
+
+MCP-capable agents should use **Streamable HTTP** at `POST /mcp` (same host as the API) with `Authorization: Bearer <API_KEY>`. See [skills/clawkpit/mcp.md](skills/clawkpit/mcp.md) for tools, limits, and client examples. Local dev: `npm run dev` serves `/mcp` on port 3000.
 
 ## API overview
 
@@ -68,7 +77,7 @@ Copy `.env.example` to `.env` and set values as needed.
 - **Push notifications:** `GET /api/push/public-key`, `POST /api/push/subscribe`, `POST /api/push/unsubscribe`
 - **Real-time:** WebSocket at `ws(s)://<host>/api/ws` (session cookie required); server pushes `items:changed` after mutations. Push notifications use VAPID + service worker so they can arrive even if the tab is closed.
 
-Error responses use a unified envelope: `{ "error": { "code", "message", "details" } }`. Codes include `BAD_REQUEST`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `RATE_LIMITED`. Validation errors appear in `details`. See `skills/clawkpit/api.md` for a concise API reference (device flow, enums, shapes, actor inference).
+Error responses use a unified envelope: `{ "error": { "code", "message", "details" } }`. Codes include `BAD_REQUEST`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `RATE_LIMITED`. Validation errors appear in `details`. See `skills/clawkpit/api.md` and `skills/clawkpit/mcp.md` for REST and MCP references.
 
 ## Tests and build
 

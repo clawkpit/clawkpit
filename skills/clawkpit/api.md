@@ -1,5 +1,7 @@
 # Clawkpit API reference
 
+**MCP (recommended for MCP-capable agents):** See [mcp.md](mcp.md) for the Streamable HTTP endpoint at `/mcp`, tool list, and client setup. This REST reference remains the source of truth for OpenClaw slash commands and fallback integrations.
+
 Base URL: use `CLAWKPIT_BASE_URL` from environment or config (e.g. `https://your-clawkpit-instance.example.com` for self-hosted). All paths below are relative to the base (e.g. base + `/api/me`).
 
 ## Authentication (items and notes)

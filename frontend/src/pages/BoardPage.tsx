@@ -408,7 +408,7 @@ export function BoardPage() {
           <DialogHeader>
             <DialogTitle>Connect OpenClaw</DialogTitle>
             <DialogDescription>
-              Connect your OpenClaw agent to this Clawkpit account so it can manage your board. Follow the steps below; each command can be copied with one click.
+              Connect your OpenClaw agent to this Clawkpit account so it can manage your board. MCP-capable clients can also use <code className="text-xs">{typeof window !== "undefined" ? `${window.location.origin}/mcp` : "/mcp"}</code> with your API key (see {OPENCLAW_DOCS_BASE_URL}/openclaw/references/mcp.md). Follow the steps below; each command can be copied with one click.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 min-w-0">

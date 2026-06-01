@@ -18,14 +18,16 @@ Clawkpit is a **single-user or single-tenant**, **AI-managed Kanban board**:
 | `src/` | Backend: Express app, API routes, services, DB client. |
 | `src/server.ts` | Entry point: runs migrations (dev), creates app, starts HTTP server; handles WebSocket upgrade on `/api/ws` (session auth). |
 | `src/app.ts` | Express app: helmet, CORS (origin from `CORS_ORIGIN`, credentials enabled), body limit, cookie parser, `/api` router, static frontend. |
-| `src/routes/api.ts` | All API route handlers; auth middleware; uses services and validation. |
+| `src/routes/api.ts` | All API route handlers; uses shared auth middleware; uses services and validation. |
+| `src/middleware/auth.ts` | Session and API-key resolution (`resolveAuth`, `resolveApiKeyUser`). |
+| `src/mcp/` | MCP Streamable HTTP server at `/mcp`: tools delegate to item and agent-content services. |
 | `src/services/` | Business logic: auth, items, notes, API keys, email, rate limiting, OpenClaw device flow, agent content (markdown/form), board broadcast (WebSocket), validation, error helpers. |
 | `src/db/prisma.ts` | Prisma client and dev migration runner. |
 | `src/domain/types.ts` | Shared enums (urgency, tag, importance, status, actor). |
 | `prisma/` | Schema (SQLite for dev, `pg/` for production), migrations. |
 | `frontend/src/` | React app: pages, components, API client, hooks. |
 | `tests/` | Vitest API tests (Supertest). |
-| `skills/clawkpit/` | OpenClaw skill: SKILL.md, api.md, README for AI agents. |
+| `skills/clawkpit/` | OpenClaw skill: SKILL.md, api.md, mcp.md for AI agents. |
 | `docs/` | Project documentation (this file, etc.). |
 
 ## Data model
@@ -40,6 +42,18 @@ Clawkpit is a **single-user or single-tenant**, **AI-managed Kanban board**:
 - **sessions**, **magic_links**, **api_keys** (hashed), **openclaw_device**, **email_change_requests**: auth and device-flow tables.
 
 Indexes support list queries by (user_id, status, urgency), (user_id, deadline), (user_id, updated_at), and notes by (item_id, created_at). `has_ai_changes` is set when the AI creates or modifies an item (or adds a note); cleared when the user opens the item or makes a change. The UI uses it to show an “AI changed this” indicator.
+
+## MCP (Model Context Protocol)
+
+- **Endpoint:** `POST` and `GET` `/mcp` on the same HTTP server as the API (not a separate deployment).
+- **Transport:** Streamable HTTP (stateless; JSON responses). Implemented with `@modelcontextprotocol/server` and `@modelcontextprotocol/node`.
+- **Auth:** API key only (`Authorization: Bearer` or `X-API-Key`). Session cookies are rejected to avoid browser CSRF and to match remote agent clients.
+- **Tools:** Ten v1 tools (`create_task`, `update_task`, `complete_task`, `list_tasks`, `get_next_action`, `create_reminder`, `create_form_request`, `create_reading_item`, `send_user_message`, `fetch_user_response`) call existing services; `userId` always comes from the key, never from tool arguments.
+- **Rate limiting:** Per-user in-memory bucket (`MCP_RATE_LIMIT` / `MCP_RATE_WINDOW_MS`). Audit logs record tool name, user id, and duration (not full payloads).
+- **Kill switch:** `MCP_ENABLED=false` returns 503.
+- **Host guard (production):** When `APP_BASE_URL` or `MCP_ALLOWED_HOSTS` is configured, `/mcp` rejects requests whose `Host` header does not match (mitigates misrouted or rebinding traffic). Set `MCP_HOST_GUARD=false` to disable, or `MCP_HOST_GUARD=true` to require an allowlist even without `APP_BASE_URL`.
+
+See `skills/clawkpit/mcp.md` for integrator documentation.
 
 ## API design
 
