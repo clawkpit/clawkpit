@@ -39,6 +39,8 @@ interface DetailPanelProps {
   onAddNote?: (itemId: string, content: string) => void;
   onEditNote?: (noteId: string, content: string) => void;
   onContentAction?: (type: ItemContentType, item: Item) => void;
+  /** Pre-fill urgency/tag when opening create from a Kanban column. */
+  createDefaults?: { column?: ItemColumn; tag?: ItemTag };
 }
 
 export function DetailPanel({
@@ -55,6 +57,7 @@ export function DetailPanel({
   onAddNote,
   onEditNote,
   onContentAction,
+  createDefaults,
 }: DetailPanelProps) {
   const projectsList = projects ?? [];
   const [error, setError] = useState<string | null>(null);
@@ -86,15 +89,15 @@ export function DetailPanel({
     } else if (isOpen) {
       setLocalTitle("");
       setLocalDescription("");
-      setLocalTag("To Do");
-      setLocalColumn("Unclear");
+      setLocalTag(createDefaults?.tag ?? "To Do");
+      setLocalColumn(createDefaults?.column ?? "Unclear");
       setLocalImportance("M");
       setLocalDeadline("");
       setLocalProjectId("none");
       setLocalAssignedTo("AI");
       setError(null);
     }
-  }, [item, isOpen, isCreate]);
+  }, [item, isOpen, isCreate, createDefaults]);
 
   const handleAssignedToChange = (value: ItemAuthor) => {
     setLocalAssignedTo(value);
