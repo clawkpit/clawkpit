@@ -7,8 +7,21 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const APP_BASE_URL = process.env.APP_BASE_URL ?? "";
 const FROM_EMAIL = process.env.MAGIC_LINK_FROM_EMAIL ?? "Clawkpit <onboarding@resend.dev>";
 
+/** First set of ADMIN_EMAIL, OPS_EMAIL, or MAINTAINER_EMAIL (ops signup notifications). */
+export function resolveOpsNotifyEmail(): string | null {
+  for (const key of ["ADMIN_EMAIL", "OPS_EMAIL", "MAINTAINER_EMAIL"] as const) {
+    const value = process.env[key]?.trim();
+    if (value) return value;
+  }
+  return null;
+}
+
 export function canSendMagicLinkEmail(): boolean {
   return Boolean(RESEND_API_KEY && APP_BASE_URL);
+}
+
+export function canSendNewUserSignupEmail(): boolean {
+  return Boolean(RESEND_API_KEY && resolveOpsNotifyEmail());
 }
 
 export async function sendMagicLinkEmail(
@@ -78,4 +91,57 @@ export async function sendEmailChangeVerificationEmail(
     const message = e instanceof Error ? e.message : "Send failed";
     return { ok: false, error: message };
   }
+}
+
+/** Notifies ops when a new account is created (first magic-link request for a new email). */
+export async function sendNewUserSignupEmail(
+  newUserEmail: string,
+  opts?: { userId?: string; name?: string }
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const to = resolveOpsNotifyEmail();
+  if (!RESEND_API_KEY || !to) {
+    return {
+      ok: false,
+      error: "Signup notify not configured (RESEND_API_KEY and ADMIN_EMAIL, OPS_EMAIL, or MAINTAINER_EMAIL)",
+    };
+  }
+  const signedUpAt = new Date().toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+  const instanceLine = APP_BASE_URL
+    ? `<p>Instance: <a href="${APP_BASE_URL.replace(/\/$/, "")}">${APP_BASE_URL.replace(/\/$/, "")}</a></p>`
+    : "";
+  const nameLine = opts?.name?.trim() ? `<p>Name: ${escapeHtml(opts.name.trim())}</p>` : "";
+  const idLine = opts?.userId ? `<p>User ID: ${escapeHtml(opts.userId)}</p>` : "";
+  try {
+    const { Resend } = await import("resend");
+    const resend = new Resend(RESEND_API_KEY);
+    const { error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: [to],
+      subject: `New Clawkpit signup: ${newUserEmail}`,
+      html: `
+        <p>A new Clawkpit account was created.</p>
+        <p>Email: <strong>${escapeHtml(newUserEmail)}</strong></p>
+        ${nameLine}
+        ${idLine}
+        <p>Signed up at ${escapeHtml(signedUpAt)} (server time).</p>
+        ${instanceLine}
+      `.trim(),
+    });
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Send failed";
+    return { ok: false, error: message };
+  }
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }

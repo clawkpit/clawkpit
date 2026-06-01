@@ -81,6 +81,9 @@ export function BoardPage() {
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [draggedItem, setDraggedItem] = useState<Item | null>(null);
   const [isCreate, setIsCreate] = useState(false);
+  const [createDefaults, setCreateDefaults] = useState<
+    { column?: ItemColumn; tag?: ItemTag } | undefined
+  >();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [showOpenclawModal, setShowOpenclawModal] = useState(false);
   const [openclawModalCode, setOpenclawModalCode] = useState("");
@@ -229,15 +232,29 @@ export function BoardPage() {
     setIsPanelOpen(false);
     setSelectedItem(null);
     setIsCreate(false);
+    setCreateDefaults(undefined);
     setPanelNotes([]);
     clearDeepLinkParam();
   };
 
   const handleNewItem = () => {
     setSelectedItem(null);
+    setCreateDefaults(undefined);
     setIsCreate(true);
     setIsPanelOpen(true);
     setPanelNotes([]);
+  };
+
+  const handleAddItemInColumn = (columnKey: ItemColumn | ItemTag) => {
+    setSelectedItem(null);
+    setIsCreate(true);
+    setIsPanelOpen(true);
+    setPanelNotes([]);
+    if (viewMode === "urgency") {
+      setCreateDefaults({ column: columnKey as ItemColumn });
+    } else {
+      setCreateDefaults({ tag: columnKey as ItemTag });
+    }
   };
 
   const handleCreate = async (payload: {
@@ -374,8 +391,15 @@ export function BoardPage() {
                 <SettingsIcon className="w-4 h-4" />
               </Button>
             </div>
-            <Button type="button" size="sm" className="h-8 md:h-9" onClick={handleNewItem}>
-              <PlusIcon className="w-4 h-4 md:mr-2" />
+            <Button
+              type="button"
+              variant="default"
+              className="inline-flex size-8 shrink-0 items-center justify-center gap-0 p-0 text-xs font-medium leading-none md:h-9 md:w-auto md:gap-2 md:px-3"
+              onClick={handleNewItem}
+            >
+              <span className="inline-grid size-4 shrink-0 place-items-center" aria-hidden>
+                <PlusIcon className="size-3.5" strokeWidth={2.25} />
+              </span>
               <span className="hidden md:inline">New Item</span>
             </Button>
           </div>
@@ -416,6 +440,8 @@ export function BoardPage() {
           <EmptyState
             title="No items"
             description="Create an item or adjust filters to see your board."
+            onAction={items.length === 0 ? handleNewItem : undefined}
+            actionLabel="Create item"
           />
         ) : (
           <Board
@@ -428,6 +454,7 @@ export function BoardPage() {
             onDragStart={setDraggedItem}
             onDragEnd={() => setDraggedItem(null)}
             onAction={handleContentAction}
+            onAddItem={handleAddItemInColumn}
           />
         )}
       </div>
@@ -437,6 +464,7 @@ export function BoardPage() {
         notes={panelNotes}
         projects={projects}
         isOpen={isPanelOpen}
+        createDefaults={isCreate ? createDefaults : undefined}
         onClose={handleClosePanel}
         onCreate={handleCreate}
         onUpdate={handleUpdate}

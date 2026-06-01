@@ -10,7 +10,7 @@ import { MarkdownModal } from "@/components/MarkdownModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { SearchIcon, CheckCircle2Icon, XCircleIcon, FilterIcon } from "lucide-react";
+import { SearchIcon, CheckCircle2Icon, XCircleIcon, FilterIcon, ArrowLeftIcon } from "lucide-react";
 import { useMinuteTick } from "@/hooks/useMinuteTick";
 
 type ArchiveStatusFilter = "All" | "Done" | "Dropped";
@@ -171,11 +171,12 @@ export function ArchivePage() {
           </div>
           <div className="flex items-center gap-4 md:gap-6 mb-3 md:mb-4">
             <div className="flex gap-2">
-              <Link to="/board">
-                <Button variant="ghost" size="sm" className="h-8 text-xs font-medium">
+              <Button asChild variant="default" size="sm" className="h-8 text-xs font-medium">
+                <Link to="/board">
+                  <ArrowLeftIcon className="w-3.5 h-3.5" />
                   Back to Active Items
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             </div>
             <p className="text-sm text-muted-foreground">
               {filteredItems.length} of {items.length} items
@@ -251,7 +252,10 @@ export function ArchivePage() {
               <div key={item.id} className="relative">
                 <div className="absolute -top-2 -right-2 z-10">
                   {item.status === "Done" ? (
-                    <Badge className="bg-green-500/10 text-green-700 dark:bg-green-500/20 dark:text-green-300 border-green-500/20">
+                    <Badge
+                      variant="outline"
+                      className="border-green-200 bg-green-100 text-green-800 dark:border-green-800 dark:bg-green-900 dark:text-green-200 hover:bg-green-100 dark:hover:bg-green-900"
+                    >
                       <CheckCircle2Icon className="w-3 h-3 mr-1" />
                       Done
                     </Badge>

@@ -17,6 +17,7 @@ interface BoardProps {
   onDragStart?: (item: Item) => void;
   onDragEnd?: () => void;
   onAction?: (type: ItemContentType, item: Item) => void;
+  onAddItem?: (columnKey: ItemColumn | ItemTag) => void;
 }
 
 export function Board({
@@ -29,6 +30,7 @@ export function Board({
   onDragStart,
   onDragEnd,
   onAction,
+  onAddItem,
 }: BoardProps) {
   const [currentColumnIndex, setCurrentColumnIndex] = useState(0);
   const [collapsedColumns, setCollapsedColumns] = useState<Set<string>>(new Set());
@@ -141,6 +143,7 @@ export function Board({
               onDragStart={onDragStart}
               onDragEnd={onDragEnd}
               onAction={onAction}
+              onAddItem={onAddItem ? () => onAddItem(col.key) : undefined}
             />
           );
         })}
@@ -173,6 +176,9 @@ export function Board({
           viewMode={viewMode}
           onItemClick={onItemClick}
           onAction={onAction}
+          onAddItem={
+            onAddItem ? () => onAddItem(columns[currentColumnIndex].key) : undefined
+          }
           className="w-full"
         />
       </div>

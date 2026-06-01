@@ -1,24 +1,33 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { prisma } from "../db/prisma";
+import { canSendNewUserSignupEmail, sendNewUserSignupEmail } from "./emailService";
 
 function now() {
   return new Date();
 }
 const hash = (v: string) => createHash("sha256").update(v).digest("hex");
 
-export async function ensureUser(email: string, name?: string): Promise<{ id: string; email: string }> {
+export async function ensureUser(
+  email: string,
+  name?: string
+): Promise<{ id: string; email: string; isNew: boolean }> {
   const existing = await prisma.user.findUnique({ where: { email }, select: { id: true, email: true } });
-  if (existing) return existing;
+  if (existing) return { ...existing, isNew: false };
   const id = randomUUID();
   const ts = new Date();
   await prisma.user.create({
     data: { id, email, name: name ?? null, createdAt: ts, updatedAt: ts },
   });
-  return { id, email };
+  return { id, email, isNew: true };
 }
 
 export async function requestMagicLink(email: string, name?: string): Promise<{ token: string; expiresAt: string }> {
   const user = await ensureUser(email, name);
+  if (user.isNew && canSendNewUserSignupEmail()) {
+    void sendNewUserSignupEmail(user.email, { userId: user.id, name }).then((result) => {
+      if (!result.ok) console.error("[signup-notify] send failed:", result.error);
+    });
+  }
   const token = randomBytes(24).toString("hex");
   const expiresAt = new Date(now().getTime() + 1000 * 60 * 15);
   const ts = new Date();

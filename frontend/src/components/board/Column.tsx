@@ -19,6 +19,7 @@ interface BoardColumnProps {
   onDragEnd?: () => void;
   /** When user clicks Read/Open Form on an item with contentId. */
   onAction?: (type: ItemContentType, item: Item) => void;
+  onAddItem?: () => void;
   className?: string;
 }
 
@@ -35,6 +36,7 @@ export function BoardColumn({
   onDragStart,
   onDragEnd,
   onAction,
+  onAddItem,
   className,
 }: BoardColumnProps) {
   const [isDragOver, setIsDragOver] = useState(false);
@@ -120,9 +122,18 @@ export function BoardColumn({
             />
           ))}
           {items.length === 0 && (
-            <div className="flex items-center justify-center h-32 text-sm text-muted-foreground/50">
+            <div className="flex h-[81px] items-center justify-center text-sm text-muted-foreground/50">
               No items
             </div>
+          )}
+          {onAddItem && (
+            <button
+              type="button"
+              onClick={onAddItem}
+              className="mt-1 w-full py-1.5 text-xs font-medium text-muted-foreground rounded-md border border-dashed border-border/70 hover:text-foreground hover:bg-accent/40 hover:border-border transition-colors"
+            >
+              + Add item
+            </button>
           )}
         </div>
       )}
