@@ -74,7 +74,7 @@ See `skills/clawkpit/mcp.md` for integrator documentation.
 
 The HTTP server handles WebSocket upgrades on the same port. Path `/api/ws` is the only upgrade target; others are closed. The client must send the session cookie; the server resolves the user from it and registers the connection in `src/services/boardBroadcast.ts`. After any item mutation (create, update, notes, done, drop, agent markdown/form), the server calls `broadcastToUser(userId, { type: "items:changed" })`. Browser clients (e.g. the board page) subscribe via the `useBoardSocket` hook and refetch the list when they receive the event, so the board updates without a full reload.
 
-Web push is separate from WebSocket sync. The server stores browser subscriptions in `push_subscriptions`, signs payloads with VAPID, and sends a push notification when AI changes an item or adds a note. The service worker shows the notification even if the tab is closed, and only suppresses it when the app is already visibly open.
+Web push is separate from WebSocket sync. The server stores browser subscriptions in `push_subscriptions`, signs payloads with VAPID, and sends a push notification when AI changes an item or adds a note. The service worker shows the notification even if the tab is closed, and only suppresses it when the app is already visibly open. Tapping a notification navigates to `/board?item=<id>`; the board page opens the item detail panel for that id.
 
 ## Frontend architecture
 

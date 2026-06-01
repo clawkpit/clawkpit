@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import type { Item, ItemColumn, ItemTag, FilterState, Project } from "@/types/items";
 import { Board } from "@/components/board/Board";
 import { BoardFilters } from "@/components/board/Filters";
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   listItems,
+  getItem,
   createItem,
   updateItem,
   listNotes,
@@ -67,6 +68,9 @@ const AGENT_MCP_DOCS_URL = agentDocsUrl(AGENT_DOCS_BASE_URL, "agent/references/m
 export function BoardPage() {
   useMinuteTick(); // refresh time-left / overdue hints every minute
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const deepLinkItemId = searchParams.get("item");
+  const deepLinkOpenedRef = useRef<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("urgency");
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -148,7 +152,15 @@ export function BoardPage() {
     return true;
   });
 
-  const handleItemClick = async (item: Item) => {
+  const clearDeepLinkParam = useCallback(() => {
+    if (!searchParams.has("item")) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete("item");
+    setSearchParams(next, { replace: true });
+    deepLinkOpenedRef.current = null;
+  }, [searchParams, setSearchParams]);
+
+  const openItemDetail = useCallback(async (item: Item) => {
     setSelectedItem(item);
     setIsCreate(false);
     setIsPanelOpen(true);
@@ -164,13 +176,61 @@ export function BoardPage() {
     } catch {
       setPanelNotes([]);
     }
+  }, []);
+
+  const handleItemClick = (item: Item) => {
+    void openItemDetail(item);
   };
+
+  useEffect(() => {
+    if (!deepLinkItemId || !user) return;
+    if (isPanelOpen && selectedItem?.id === deepLinkItemId) return;
+    if (deepLinkOpenedRef.current === deepLinkItemId) return;
+
+    let cancelled = false;
+
+    (async () => {
+      const fromList = items.find((i) => i.id === deepLinkItemId);
+      let item: Item | null = fromList ?? null;
+      if (!item && !loading) {
+        try {
+          item = await getItem(deepLinkItemId);
+        } catch {
+          item = null;
+        }
+      }
+      if (cancelled) return;
+      if (!item) {
+        if (!loading) {
+          clearDeepLinkParam();
+        }
+        return;
+      }
+
+      deepLinkOpenedRef.current = deepLinkItemId;
+      await openItemDetail(item);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    deepLinkItemId,
+    user,
+    items,
+    loading,
+    isPanelOpen,
+    selectedItem?.id,
+    openItemDetail,
+    clearDeepLinkParam,
+  ]);
 
   const handleClosePanel = () => {
     setIsPanelOpen(false);
     setSelectedItem(null);
     setIsCreate(false);
     setPanelNotes([]);
+    clearDeepLinkParam();
   };
 
   const handleNewItem = () => {
