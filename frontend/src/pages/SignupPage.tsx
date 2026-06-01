@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Mail } from "lucide-react";
 import { useAuth, requestMagicLink, consumeMagicLink, getMe } from "@/api/client";
+import { markShowAgentConnectAfterLogin } from "@/lib/agentDocs";
 
 export function SignupPage() {
   const navigate = useNavigate();
@@ -54,7 +55,7 @@ export function SignupPage() {
       const user = await getMe();
       if (user) {
         setUser(user);
-        sessionStorage.setItem("clawkpit_show_openclaw_after_login", "1");
+        markShowAgentConnectAfterLogin();
         navigate("/board", { replace: true });
       }
     } catch (e) {

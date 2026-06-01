@@ -57,7 +57,7 @@ Please ensure tests pass and the project builds before submitting a PR.
 | Database client and migrations | `src/db/prisma.ts`, `prisma/` |
 | Frontend app and pages | `frontend/src/` |
 | API tests | `tests/api.test.ts` |
-| OpenClaw skill docs | `skills/clawkpit/` |
+| Agent skill docs | `skills/clawkpit/` |
 
 See also [docs/architecture.md](docs/architecture.md) for a higher-level overview.
 

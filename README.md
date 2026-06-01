@@ -4,7 +4,7 @@
 
 Use it at **[clawkpit.com](https://clawkpit.com)** if you don’t want to self-host, or run your own instance below.
 
-Clawkpit is an AI-managed Kanban board: urgency-driven columns (Do Now, Do Today, Do This Week, Do Later, Unclear), single tag per item (To Read, To Think About, To Use, To Do), notes, and done/drop rules. It’s designed **local-first** and **privacy-friendly**—self-host or run a single instance; magic-link auth and API keys; no passwords. Your AI agent (e.g. OpenClaw) can manage tasks via the API while you stay in control in the web UI.
+Clawkpit is an AI-managed Kanban board: urgency-driven columns (Do Now, Do Today, Do This Week, Do Later, Unclear), single tag per item (To Read, To Think About, To Use, To Do), notes, and done/drop rules. It’s designed **local-first** and **privacy-friendly**—self-host or run a single instance; magic-link auth and API keys; no passwords. Your AI agent (OpenClaw, Hermes, MCP clients, or the REST API) can manage tasks while you stay in control in the web UI.
 
 ## Quick start
 
@@ -22,8 +22,8 @@ Open **http://localhost:5173**. In development, the API returns the magic-link t
 - **Backend**: Express (Node.js), TypeScript, Prisma ORM. REST API under `/api`; all request data validated with Zod.
 - **Frontend**: React, Vite, TypeScript, Tailwind CSS, Radix UI. SPA that talks to the same origin API.
 - **Database**: SQLite in development (`data/mico.sqlite`); PostgreSQL in production via `DATABASE_URL`.
-- **Auth**: Magic-link email (Resend in production), session cookies, API keys (Bearer or `X-API-Key`). OpenClaw device flow for connecting agents without pasting secrets.
-- **Where things live**: API routes in `src/routes/api.ts`, MCP in `src/mcp/`, validation in `src/services/validation.ts`, business logic in `src/services/*.ts`, DB in `src/db/prisma.ts` and `prisma/`. Frontend in `frontend/src/`. OpenClaw skill docs in `skills/clawkpit/`.
+- **Auth**: Magic-link email (Resend in production), session cookies, API keys (Bearer or `X-API-Key`). Agent device flow (`/api/openclaw/device/*`) for connecting harnesses without pasting secrets.
+- **Where things live**: API routes in `src/routes/api.ts`, MCP in `src/mcp/`, validation in `src/services/validation.ts`, business logic in `src/services/*.ts`, DB in `src/db/prisma.ts` and `prisma/`. Frontend in `frontend/src/`. Agent skill docs in `skills/clawkpit/`.
 
 See [docs/architecture.md](docs/architecture.md) for a fuller picture (data model, API design, auth flow).
 
@@ -43,7 +43,8 @@ Copy `.env.example` to `.env` and set values as needed.
 | `VAPID_PUBLIC_KEY` | Production (push) | — | Public VAPID key for web push notifications. |
 | `VAPID_PRIVATE_KEY` | Production (push) | — | Private VAPID key for web push notifications. |
 | `VAPID_SUBJECT` | Production (push) | — | Contact URI for VAPID, usually `mailto:you@example.com`. |
-| `VITE_APP_URL` | No | `window.location.origin` | Public URL shown in frontend (e.g. OpenClaw install command in Settings). Set at build time. |
+| `VITE_APP_URL` | No | `window.location.origin` | Public app URL for links in the UI. Set at build time. |
+| `VITE_AGENT_DOCS_URL` | No | `VITE_APP_URL` or origin | Base URL for agent skill docs (`agent.md`) when hosted separately from the app (e.g. `https://clawkpit.com`). `VITE_OPENCLAW_DOCS_URL` is a deprecated alias. |
 | `MCP_ENABLED` | No | `true` | Set to `false` to disable the `/mcp` endpoint. |
 | `MCP_RATE_LIMIT` | No | `120` | Max MCP tool calls per user per minute. |
 | `MCP_RATE_WINDOW_MS` | No | `60000` | Rate limit window in milliseconds. |

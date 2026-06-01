@@ -67,7 +67,7 @@ async function handleMcpRequest(req: Request, res: Response): Promise<void> {
   if (!user) {
     res.status(401).json({
       error:
-        "Unauthorized. MCP requires an API key via Authorization: Bearer <key> or X-API-Key. Obtain a key via OpenClaw device flow or Clawkpit Settings.",
+        "Unauthorized. MCP requires an API key via Authorization: Bearer <key> or X-API-Key. Obtain a key via the agent device flow (/clawkpit connect) or Clawkpit Settings.",
     });
     return;
   }

@@ -21,13 +21,13 @@ Clawkpit is a **single-user or single-tenant**, **AI-managed Kanban board**:
 | `src/routes/api.ts` | All API route handlers; uses shared auth middleware; uses services and validation. |
 | `src/middleware/auth.ts` | Session and API-key resolution (`resolveAuth`, `resolveApiKeyUser`). |
 | `src/mcp/` | MCP Streamable HTTP server at `/mcp`: tools delegate to item and agent-content services. |
-| `src/services/` | Business logic: auth, items, notes, API keys, email, rate limiting, OpenClaw device flow, agent content (markdown/form), board broadcast (WebSocket), validation, error helpers. |
+| `src/services/` | Business logic: auth, items, notes, API keys, email, rate limiting, agent device flow, agent content (markdown/form), board broadcast (WebSocket), validation, error helpers. |
 | `src/db/prisma.ts` | Prisma client and dev migration runner. |
 | `src/domain/types.ts` | Shared enums (urgency, tag, importance, status, actor). |
 | `prisma/` | Schema (SQLite for dev, `pg/` for production), migrations. |
 | `frontend/src/` | React app: pages, components, API client, hooks. |
 | `tests/` | Vitest API tests (Supertest). |
-| `skills/clawkpit/` | OpenClaw skill: SKILL.md, api.md, mcp.md for AI agents. |
+| `skills/clawkpit/` | Agent skill: SKILL.md, api.md, mcp.md for OpenClaw, Hermes, MCP clients, etc. |
 | `docs/` | Project documentation (this file, etc.). |
 
 ## Data model
@@ -57,7 +57,7 @@ See `skills/clawkpit/mcp.md` for integrator documentation.
 
 ## API design
 
-- **REST under `/api`**: Auth under `/api/auth/*`, identity and keys under `/api/me/*`, OpenClaw device under `/api/openclaw/device/*`, items and notes under `/api/v1/items` and `/api/v1/notes`.
+- **REST under `/api`**: Auth under `/api/auth/*`, identity and keys under `/api/me/*`, agent device flow under `/api/openclaw/device/*`, items and notes under `/api/v1/items` and `/api/v1/notes`.
 - **Validation**: Every request body and query is validated with Zod (schemas in `src/services/validation.ts`). Route params for IDs are validated as UUIDs. Invalid input returns 400 with `error.code` `BAD_REQUEST` and `error.details` (e.g. Zod flatten).
 - **Error envelope**: `{ "error": { "code", "message", "details" } }`. Codes: BAD_REQUEST, UNAUTHORIZED, FORBIDDEN, NOT_FOUND, RATE_LIMITED.
 - **Ordering**: List items are ordered by deadline ASC (nulls last), importance (High > Medium > Low), updatedAt DESC. Batch endpoint limited to 100 operations per request.
@@ -68,7 +68,7 @@ See `skills/clawkpit/mcp.md` for integrator documentation.
 - **Session**: Cookie-based; httpOnly, 14-day maxAge. When `CORS_ORIGIN` is set (cross-origin), the session cookie uses `sameSite=none` and `secure=true` in production so the browser sends it on cross-origin requests; otherwise `sameSite=lax` and `secure` only in production. All protected routes resolve user from session or API key.
 - **API keys**: Created in Settings; stored hashed. Sent as `Authorization: Bearer <key>` or `X-API-Key`. Used for programmatic and AI access.
 - **Actor inference**: If the request does not explicitly send an actor field (`createdBy`, `modifiedBy`, `author`, or `actor`), the server infers it from the auth method: **API key** → `"AI"`, **session** → `"User"`. Callers can still override by sending the field. This keeps `has_ai_changes` and filters correct when the UI or an agent omits the actor.
-- **OpenClaw device flow**: `POST /api/openclaw/device/start` (no auth), `POST /api/openclaw/device/poll` (no auth, rate-limited), `POST /api/openclaw/device/confirm` (session required). User enters display code in Clawkpit Settings; agent receives API token via poll and stores it locally.
+- **Agent device flow**: `POST /api/openclaw/device/start` (no auth), `POST /api/openclaw/device/poll` (no auth, rate-limited), `POST /api/openclaw/device/confirm` (session required). The display code is bound to the email used at start; confirm rejects a session whose email does not match (403). User enters the code in Clawkpit Settings; the agent receives the API token via poll and stores it locally.
 
 ## Real-time updates (WebSocket)
 
@@ -79,8 +79,8 @@ Web push is separate from WebSocket sync. The server stores browser subscription
 ## Frontend architecture
 
 - **Stack**: React, Vite, TypeScript, Tailwind CSS, Radix UI. SPA with client-side routing.
-- **API client**: `frontend/src/api/client.tsx`—fetch wrapper, auth state (user), and API functions for items, notes, auth, keys, OpenClaw.
-- **Pages**: Board (urgency/tag views, filters), Login, Signup, Settings (profile, API keys, OpenClaw connect), Archive. Detail panel and modals for item/note editing and done/drop.
+- **API client**: `frontend/src/api/client.tsx`—fetch wrapper, auth state (user), and API functions for items, notes, auth, keys, agent device confirm.
+- **Pages**: Board (urgency/tag views, filters), Login, Signup, Settings (profile, API keys, connect agent), Archive. Detail panel and modals for item/note editing and done/drop.
 - **State**: Auth and board data loaded via API; no global store beyond auth context.
 
 ## Where to find what
@@ -88,4 +88,4 @@ Web push is separate from WebSocket sync. The server stores browser subscription
 - **Adding an API endpoint**: Add route in `src/routes/api.ts`, add or reuse schema in `src/services/validation.ts`, implement logic in `src/services/*.ts` (e.g. itemService, authService). Return with `sendApiError` on failure. If the endpoint mutates items (create, update, notes, done, drop, agent content), call `broadcastToUser(userId, { type: "items:changed" })` after the mutation so the board UI updates in real time.
 - **Changing the data model**: Edit `prisma/schema.sqlite.prisma` (and `prisma/pg/schema.prisma` if needed), run `npm run db:migrate:dev`, update services and types.
 - **Validation rules**: All in `src/services/validation.ts`. Use `uuidParam` for ID params; use existing or new Zod schemas for body/query.
-- **Rate limiting**: In-memory in `src/services/rateLimit.ts`; used for magic-link and OpenClaw flows. For multi-instance deployments, consider a shared store (e.g. Redis).
+- **Rate limiting**: In-memory in `src/services/rateLimit.ts`; used for magic-link and agent device flows. For multi-instance deployments, consider a shared store (e.g. Redis).

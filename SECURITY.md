@@ -30,6 +30,7 @@ Clawkpit is designed as a **local-first**, **single-tenant** application:
 - **Authorization**: All item and note access is scoped by authenticated user; there is no cross-user data access via the API.
 - **Input**: Request bodies and query parameters are validated with Zod. Route parameters (e.g. IDs) are validated (e.g. UUID format). Request body size and batch size are limited.
 - **Headers and transport**: Security headers are set (e.g. via Helmet). In production, cookies are marked `secure`. Use HTTPS in production.
-- **Rate limiting**: Magic-link and OpenClaw device flows are rate-limited (in-memory, per IP/email or per device). Suitable for single-instance deployment; for multi-instance setups consider a shared store (e.g. Redis).
+- **Rate limiting**: Magic-link and agent device flows are rate-limited (in-memory, per IP/email or per device). Suitable for single-instance deployment; for multi-instance setups consider a shared store (e.g. Redis).
+- **Agent device flow**: Display codes are bound to the email provided at `device/start`; `device/confirm` only succeeds when the signed-in user's email matches, preventing one user from authorizing an agent for another account.
 
 If you deploy Clawkpit in a different model (e.g. multi-tenant SaaS), consider additional hardening (tenant isolation, stricter rate limiting, and security review) beyond this baseline.

@@ -176,7 +176,7 @@ export function SettingsPanel({ isOpen, onClose, onConnectOpenclawClick }: Setti
             <section className="space-y-3">
               <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">API Keys</h3>
               <p className="text-xs text-muted-foreground">
-                API keys let OpenClaw and other tools access your Clawkpit items. These keys grant access to your data only.
+                API keys let your agent and other tools access your Clawkpit items. These keys grant access to your data only.
               </p>
               <div className="flex gap-2 items-end">
                 <div className="flex-1 space-y-1">
@@ -185,7 +185,7 @@ export function SettingsPanel({ isOpen, onClose, onConnectOpenclawClick }: Setti
                   </Label>
                   <Input
                     id="new-key-label"
-                    placeholder="e.g. OpenClaw"
+                    placeholder="e.g. My agent"
                     value={newKeyLabel}
                     onChange={(e) => setNewKeyLabel(e.target.value)}
                     className="text-sm"
@@ -270,9 +270,9 @@ export function SettingsPanel({ isOpen, onClose, onConnectOpenclawClick }: Setti
             </section>
 
             <section className="space-y-3">
-              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Connect OpenClaw</h3>
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Connect your agent</h3>
               <p className="text-xs text-muted-foreground">
-                Connect your OpenClaw agent to this Clawkpit account so it can manage your board.
+                Connect OpenClaw, Hermes, or another harness to this Clawkpit account so it can manage your board.
               </p>
               <Button
                 size="sm"
@@ -284,7 +284,7 @@ export function SettingsPanel({ isOpen, onClose, onConnectOpenclawClick }: Setti
                 }}
                 disabled={!onConnectOpenclawClick}
               >
-                (Re)Connect to OpenClaw
+                (Re)Connect agent
               </Button>
             </section>
 
