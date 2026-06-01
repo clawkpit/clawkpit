@@ -40,6 +40,9 @@ Copy `.env.example` to `.env` and set values as needed.
 | `RESEND_API_KEY` | Production (email) | — | Resend API key for magic-link emails. |
 | `APP_BASE_URL` | Production (email) | — | Base URL of the app (e.g. for magic-link links). |
 | `MAGIC_LINK_FROM_EMAIL` | No | `Clawkpit <onboarding@resend.dev>` | Sender address for magic-link emails. |
+| `ADMIN_EMAIL` | No | — | Ops inbox for new-signup notifications (see also `OPS_EMAIL`, `MAINTAINER_EMAIL`). First set wins. |
+| `OPS_EMAIL` | No | — | Ops inbox for new-signup notifications (see also `ADMIN_EMAIL`, `MAINTAINER_EMAIL`). First set wins. |
+| `MAINTAINER_EMAIL` | No | — | Ops inbox for new-signup notifications (see also `ADMIN_EMAIL`, `OPS_EMAIL`). First set wins. |
 | `VAPID_PUBLIC_KEY` | Production (push) | — | Public VAPID key for web push notifications. |
 | `VAPID_PRIVATE_KEY` | Production (push) | — | Private VAPID key for web push notifications. |
 | `VAPID_SUBJECT` | Production (push) | — | Contact URI for VAPID, usually `mailto:you@example.com`. |
@@ -61,6 +64,7 @@ Copy `.env.example` to `.env` and set values as needed.
 - Build: `npm run build` and `npm run build:frontend` (or your CI equivalent). Start with `npm start` (serves API and frontend from the same process).
 - Put the app behind HTTPS and a reverse proxy. Set `TRUST_PROXY=1` if you need correct client IPs for rate limiting. Set `CORS_ORIGIN` to the other origin(s) (e.g. `https://clawkpit.com`) if a separate site (e.g. landing page) needs to call the API with credentials to check login state.
 - For magic-link email in production, set `RESEND_API_KEY`, `APP_BASE_URL`, and optionally `MAGIC_LINK_FROM_EMAIL` (see [Resend](https://resend.com)). Without these, the request-link endpoint still responds but does not send email.
+- To get an email when someone creates a new account, set `RESEND_API_KEY` and one of `ADMIN_EMAIL`, `OPS_EMAIL`, or `MAINTAINER_EMAIL` (first set wins). Notification is sent when the account row is created (first magic-link request for that email), not when they complete sign-in.
 
 ## MCP (agents)
 
