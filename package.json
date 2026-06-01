@@ -26,13 +26,14 @@
   "type": "commonjs",
   "dependencies": {
     "@prisma/client": "^6.9.0",
-    "dotenv": "^16.4.5",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
     "express": "^5.2.1",
     "helmet": "^8.0.0",
     "nanoid": "^5.1.6",
     "resend": "^6.9.2",
+    "web-push": "^3.6.7",
     "ws": "^8.18.0",
     "zod": "^4.3.6"
   },

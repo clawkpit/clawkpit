@@ -95,6 +95,19 @@ export const createApiKeySchema = z.object({
   name: z.string().max(255).optional()
 });
 
+export const pushSubscriptionSchema = z.object({
+  endpoint: z.string().url(),
+  expirationTime: z.number().finite().nullable().optional(),
+  keys: z.object({
+    p256dh: z.string().min(1),
+    auth: z.string().min(1),
+  })
+});
+
+export const pushUnsubscribeSchema = z.object({
+  endpoint: z.string().url(),
+});
+
 export const createProjectSchema = z.object({
   name: z.string().min(1).max(255),
 });

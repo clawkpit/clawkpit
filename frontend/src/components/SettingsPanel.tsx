@@ -15,6 +15,7 @@ import { useAuth } from "@/api/client";
 import { updateMe, listApiKeys, createApiKey, deleteApiKey, logout, type ApiKeyMeta } from "@/api/client";
 import { XIcon, CopyIcon, PlusIcon, Trash2Icon, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAIPushNotifications } from "@/hooks/useAIPushNotifications";
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -36,6 +37,7 @@ export function SettingsPanel({ isOpen, onClose, onConnectOpenclawClick }: Setti
   const [copyDone, setCopyDone] = useState(false);
   const [createKeyLoading, setCreateKeyLoading] = useState(false);
   const [newKeyLabel, setNewKeyLabel] = useState("");
+  const push = useAIPushNotifications(isOpen && !!user);
 
   useEffect(() => {
     if (user) setEmail(user.email ?? "");
@@ -220,6 +222,50 @@ export function SettingsPanel({ isOpen, onClose, onConnectOpenclawClick }: Setti
                     </li>
                   ))}
                 </ul>
+              )}
+            </section>
+
+            <section className="space-y-3">
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Notifications</h3>
+              <p className="text-xs text-muted-foreground">
+                True web push notifications. They arrive via service worker even if the app tab is closed.
+              </p>
+              <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-muted/30 px-3 py-2">
+                <span className="text-xs text-muted-foreground">
+                  {!push.supported
+                    ? "Not supported"
+                    : push.permission === "denied"
+                      ? "Blocked in this browser"
+                      : push.subscribed
+                        ? "Enabled"
+                        : push.permission === "granted"
+                          ? "Ready to enable"
+                          : "Disabled"}
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void push.enable()}
+                    disabled={!push.supported || push.loading || push.subscribed || push.permission === "denied"}
+                  >
+                    {push.subscribed ? "Enabled" : push.loading ? "Working…" : "Enable notifications"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void push.disable()}
+                    disabled={!push.supported || push.loading || !push.subscribed}
+                  >
+                    Disable
+                  </Button>
+                </div>
+              </div>
+              {push.error && <p className="text-xs text-destructive">{push.error}</p>}
+              {push.permission === "denied" && (
+                <p className="text-xs text-muted-foreground">
+                  Turn notifications back on in your browser settings if you want these alerts again.
+                </p>
               )}
             </section>
 

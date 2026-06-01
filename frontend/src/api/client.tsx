@@ -407,3 +407,27 @@ export async function createProject(name: string): Promise<Project> {
   });
   return mapProject(raw);
 }
+
+export interface PushPublicKeyResponse {
+  publicKey: string | null;
+  configured: boolean;
+}
+
+export async function getPushPublicKey(): Promise<string | null> {
+  const data = await apiFetch<PushPublicKeyResponse>("/push/public-key");
+  return data.publicKey;
+}
+
+export async function savePushSubscription(subscription: PushSubscriptionJSON): Promise<void> {
+  await apiFetch("/push/subscribe", {
+    method: "POST",
+    body: JSON.stringify(subscription),
+  });
+}
+
+export async function removePushSubscription(endpoint: string): Promise<void> {
+  await apiFetch("/push/unsubscribe", {
+    method: "POST",
+    body: JSON.stringify({ endpoint }),
+  });
+}

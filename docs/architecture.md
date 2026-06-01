@@ -36,6 +36,7 @@ Clawkpit is a **single-user or single-tenant**, **AI-managed Kanban board**:
 - **user_counters**: user_id, next_human_id (for allocating human_id).
 - **agent_content**: id (UUID), user_id, type (markdown|form), title, body, external_id, content_hash, created_at, updated_at. Used for agent-pushed markdown and forms; items may link via content_id.
 - **form_responses**: id (UUID), user_id, content_id, item_id (nullable), response (JSON), created_at.
+- **push_subscriptions**: id (UUID), user_id, endpoint, p256dh, auth, expiration_time, created_at, updated_at. Stores browser push subscriptions per user/device.
 - **sessions**, **magic_links**, **api_keys** (hashed), **openclaw_device**, **email_change_requests**: auth and device-flow tables.
 
 Indexes support list queries by (user_id, status, urgency), (user_id, deadline), (user_id, updated_at), and notes by (item_id, created_at). `has_ai_changes` is set when the AI creates or modifies an item (or adds a note); cleared when the user opens the item or makes a change. The UI uses it to show an “AI changed this” indicator.
@@ -58,6 +59,8 @@ Indexes support list queries by (user_id, status, urgency), (user_id, deadline),
 ## Real-time updates (WebSocket)
 
 The HTTP server handles WebSocket upgrades on the same port. Path `/api/ws` is the only upgrade target; others are closed. The client must send the session cookie; the server resolves the user from it and registers the connection in `src/services/boardBroadcast.ts`. After any item mutation (create, update, notes, done, drop, agent markdown/form), the server calls `broadcastToUser(userId, { type: "items:changed" })`. Browser clients (e.g. the board page) subscribe via the `useBoardSocket` hook and refetch the list when they receive the event, so the board updates without a full reload.
+
+Web push is separate from WebSocket sync. The server stores browser subscriptions in `push_subscriptions`, signs payloads with VAPID, and sends a push notification when AI changes an item or adds a note. The service worker shows the notification even if the tab is closed, and only suppresses it when the app is already visibly open.
 
 ## Frontend architecture
 

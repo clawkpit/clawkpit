@@ -68,12 +68,21 @@ Use `externalId` for recurring syncs from external systems. It should be a deter
 
 | Method | Path | Body | Response |
 |--------|------|------|----------|
-| POST | `/api/agent/markdown` | `{ "title?", "markdown" (required, max 100k), "externalId?" }` | 201 + `{ "markdownId", "itemId" }`. Creates a ToRead item linked to the content (`assignedTo: User`). |
+| POST | `/api/agent/markdown` | `{ "title?", "markdown" (required, max 100k), "externalId?" }` | 201 + `{ "markdownId", "itemId", "action" }`. Creates or updates a ToRead item linked to the content (`assignedTo: User`). |
 | GET | `/api/markdown/:id` | — | `{ "id", "title", "markdown", "createdAt" }` or 404. Only the owning user can access. |
-| POST | `/api/agent/form` | `{ "title?", "formMarkdown" (required, max 100k), "externalId?" }` | 201 + `{ "formId", "itemId" }`. Creates a ToDo item linked to the form (`assignedTo: User`). |
+| POST | `/api/agent/form` | `{ "title?", "formMarkdown" (required, max 100k), "externalId?" }` | 201 + `{ "formId", "itemId", "action" }`. Creates or updates a ToDo item linked to the form (`assignedTo: User`). |
 | GET | `/api/forms/:id` | — | `{ "id", "title", "formMarkdown", "createdAt" }` or 404. Only the owning user can access. |
 | POST | `/api/forms/:id/submit` | `{ "itemId?", "response": { ... } }` | 201 + `{ "id" }`. Saves the response and marks the linked item as Done. Intended for human-completed forms, not agent-authored submissions. |
 | GET | `/api/agent/forms/:id/responses` | — | `{ "responses": [ { "id", "userId", "contentId", "itemId", "response", "createdAt" } ] }`. Only the owning user can access. |
+
+## Push notifications
+
+| Method | Path | Body | Response |
+|--------|------|------|----------|
+| GET | `/api/push/public-key` | — | `{ "publicKey": "..." \| null, "configured": true\|false }`. Requires auth. |
+| POST | `/api/push/subscribe` | A PushSubscription JSON object (`endpoint`, `expirationTime?`, `keys.p256dh`, `keys.auth`) | 201 + `{ "ok": true }`. Saves or updates the browser subscription for the current user. |
+| POST | `/api/push/unsubscribe` | `{ "endpoint": "..." }` | `{ "ok": true, "removed": true\|false }`. Removes the current user's subscription for that endpoint. |
+
 
 ## Real-time updates (WebSocket)
 
