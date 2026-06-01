@@ -321,7 +321,7 @@ export function DetailPanel({
                   value={localDeadline}
                   onChange={(e) => {
                     setLocalDeadline(e.target.value);
-                    if (item) onUpdate?.(item.id, { deadline: e.target.value ? new Date(e.target.value) : undefined });
+                    if (item) onUpdate?.(item.id, { deadline: e.target.value ? new Date(e.target.value) : null });
                   }}
                   className="text-sm"
                 />
