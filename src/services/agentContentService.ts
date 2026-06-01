@@ -66,7 +66,7 @@ async function upsertContent(
   contentType: AgentContentType,
   tag: Tag,
   payload: { title?: string; body: string; externalId?: string }
-): Promise<{ contentId: string; itemId: string }> {
+): Promise<{ contentId: string; itemId: string; action: "created" | "updated" }> {
   const body = payload.body;
   const contentHash = hashBody(body);
   const title = payload.title?.trim() || deriveTitleFromMarkdown(body);
@@ -90,9 +90,9 @@ async function upsertContent(
         orderBy: { createdAt: "desc" },
       });
       if (existingItem) {
-        return { id: existing.id, existingItemId: existingItem.id };
+        return { id: existing.id, existingItemId: existingItem.id, action: "updated" as const };
       }
-      return { id: existing.id, existingItemId: null };
+      return { id: existing.id, existingItemId: null, action: "created" as const };
     }
 
     const id = randomUUID();
@@ -109,7 +109,7 @@ async function upsertContent(
         updatedAt: new Date(),
       },
     });
-    return { id, existingItemId: null };
+    return { id, existingItemId: null, action: "created" as const };
   });
 
   if (contentId.existingItemId) {
@@ -117,7 +117,7 @@ async function upsertContent(
       where: { id: contentId.existingItemId },
       data: { hasAIChanges: true, modifiedBy: "AI", updatedAt: new Date() },
     });
-    return { contentId: contentId.id, itemId: contentId.existingItemId };
+    return { contentId: contentId.id, itemId: contentId.existingItemId, action: contentId.action };
   }
 
   const item = await createItem(userId, {
@@ -131,31 +131,31 @@ async function upsertContent(
     assignedTo: "User",
     contentId: contentId.id,
   });
-  return { contentId: contentId.id, itemId: item.id };
+  return { contentId: contentId.id, itemId: item.id, action: contentId.action };
 }
 
 export async function upsertMarkdown(
   userId: string,
   payload: { title?: string; markdown: string; externalId?: string }
-): Promise<{ markdownId: string; itemId: string }> {
+): Promise<{ markdownId: string; itemId: string; action: "created" | "updated" }> {
   const result = await upsertContent(userId, "markdown", "ToRead", {
     title: payload.title,
     body: payload.markdown,
     externalId: payload.externalId,
   });
-  return { markdownId: result.contentId, itemId: result.itemId };
+  return { markdownId: result.contentId, itemId: result.itemId, action: result.action };
 }
 
 export async function upsertForm(
   userId: string,
   payload: { title?: string; formMarkdown: string; externalId?: string }
-): Promise<{ formId: string; itemId: string }> {
+): Promise<{ formId: string; itemId: string; action: "created" | "updated" }> {
   const result = await upsertContent(userId, "form", "ToDo", {
     title: payload.title,
     body: payload.formMarkdown,
     externalId: payload.externalId,
   });
-  return { formId: result.contentId, itemId: result.itemId };
+  return { formId: result.contentId, itemId: result.itemId, action: result.action };
 }
 
 export async function getContent(userId: string, id: string): Promise<AgentContent | null> {

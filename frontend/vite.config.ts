@@ -11,6 +11,9 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "sw.ts",
       includeAssets: ["favicon.svg", "pwa/icon-192x192.png", "pwa/icon-512x512.png", "pwa/icon-512x512-maskable.png"],
       manifest: {
         name: "Clawkpit",

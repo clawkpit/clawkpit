@@ -40,6 +40,9 @@ Copy `.env.example` to `.env` and set values as needed.
 | `RESEND_API_KEY` | Production (email) | — | Resend API key for magic-link emails. |
 | `APP_BASE_URL` | Production (email) | — | Base URL of the app (e.g. for magic-link links). |
 | `MAGIC_LINK_FROM_EMAIL` | No | `Clawkpit <onboarding@resend.dev>` | Sender address for magic-link emails. |
+| `VAPID_PUBLIC_KEY` | Production (push) | — | Public VAPID key for web push notifications. |
+| `VAPID_PRIVATE_KEY` | Production (push) | — | Private VAPID key for web push notifications. |
+| `VAPID_SUBJECT` | Production (push) | — | Contact URI for VAPID, usually `mailto:you@example.com`. |
 | `VITE_APP_URL` | No | `window.location.origin` | Public URL shown in frontend (e.g. OpenClaw install command in Settings). Set at build time. |
 
 ## Database (Prisma)
@@ -62,7 +65,8 @@ Copy `.env.example` to `.env` and set values as needed.
 - **Actions:** `POST /api/v1/items/:id/done`, `POST /api/v1/items/:id/drop`
 - **Notes:** `POST /api/v1/items/:id/notes`, `GET /api/v1/items/:id/notes`, `PATCH /api/v1/notes/:noteId`
 - **Agent content:** `POST /api/agent/markdown`, `POST /api/agent/form`, `GET /api/markdown/:id`, `GET /api/forms/:id`, `POST /api/forms/:id/submit`
-- **Real-time:** WebSocket at `ws(s)://<host>/api/ws` (session cookie required); server pushes `items:changed` after mutations.
+- **Push notifications:** `GET /api/push/public-key`, `POST /api/push/subscribe`, `POST /api/push/unsubscribe`
+- **Real-time:** WebSocket at `ws(s)://<host>/api/ws` (session cookie required); server pushes `items:changed` after mutations. Push notifications use VAPID + service worker so they can arrive even if the tab is closed.
 
 Error responses use a unified envelope: `{ "error": { "code", "message", "details" } }`. Codes include `BAD_REQUEST`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `RATE_LIMITED`. Validation errors appear in `details`. See `skills/clawkpit/api.md` for a concise API reference (device flow, enums, shapes, actor inference).
 

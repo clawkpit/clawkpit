@@ -16,6 +16,8 @@ import {
   openclawDevicePollSchema,
   openclawDeviceStartSchema,
   patchNoteSchema,
+  pushSubscriptionSchema,
+  pushUnsubscribeSchema,
   requestMagicLinkSchema,
   submitFormResponseSchema,
   updateItemSchema,
@@ -51,6 +53,8 @@ import {
 import { addNote, createItem, dropItem, getItem, listItems, listNotes, markDone, patchItem, updateNote } from "../services/itemService";
 import { createProject, listProjects } from "../services/projectService";
 import { broadcastToUser } from "../services/boardBroadcast";
+import type { Item } from "../domain/types";
+import { getPushPublicKey, hasPushSupportConfigured, removePushSubscription, savePushSubscription, sendItemPushNotification } from "../services/pushService";
 import { sendApiError, ApiErrorCode } from "../services/apiError";
 import {
   canSendMagicLinkEmail,
@@ -224,6 +228,13 @@ function applyAssignedTo(req: any, payload: Record<string, unknown>, rawPayload:
   return null;
 }
 
+function queueItemPush(userId: string, item: Item, kind: "created" | "updated" | "note"): void {
+  if (!item.hasAIChanges) return;
+  void sendItemPushNotification(userId, item, kind).catch((error) => {
+    console.error("[push] failed to send notification", error);
+  });
+}
+
 api.get("/me", (req, res) => res.json({ user: (req as any).user }));
 
 api.patch("/me", async (req, res) => {
@@ -273,6 +284,34 @@ api.delete("/me/keys/:id", async (req, res) => {
   return res.status(204).send();
 });
 
+api.get("/push/public-key", (_req, res) => {
+  return res.json({ publicKey: getPushPublicKey(), configured: hasPushSupportConfigured() });
+});
+
+api.post("/push/subscribe", async (req, res) => {
+  const parsed = pushSubscriptionSchema.safeParse(req.body);
+  if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
+  try {
+    await savePushSubscription((req as any).user.id, parsed.data);
+    return res.status(201).json({ ok: true });
+  } catch (e: any) {
+    if (e.message === "PUSH_NOT_CONFIGURED") {
+      return sendApiError(res, 503, ApiErrorCode.INTERNAL_ERROR, "Push notifications are not configured on this server.");
+    }
+    if (e.message === "PUSH_SUBSCRIPTION_CONFLICT") {
+      return sendApiError(res, 403, ApiErrorCode.FORBIDDEN, "This push endpoint is registered to another account.");
+    }
+    throw e;
+  }
+});
+
+api.post("/push/unsubscribe", async (req, res) => {
+  const parsed = pushUnsubscribeSchema.safeParse(req.body);
+  if (!parsed.success) return sendApiError(res, 400, ApiErrorCode.BAD_REQUEST, "Validation failed", parsed.error.flatten() as Record<string, unknown>);
+  const deleted = await removePushSubscription((req as any).user.id, parsed.data.endpoint);
+  return res.json({ ok: true, removed: deleted });
+});
+
 // Agent push: markdown (ToRead)
 api.post("/agent/markdown", async (req, res) => {
   const parsed = agentMarkdownSchema.safeParse(req.body);
@@ -280,6 +319,8 @@ api.post("/agent/markdown", async (req, res) => {
   try {
     const result = await upsertMarkdown((req as any).user.id, parsed.data);
     broadcastToUser((req as any).user.id, { type: "items:changed" });
+    const item = await getItem((req as any).user.id, result.itemId);
+    if (item) queueItemPush((req as any).user.id, item, result.action);
     return res.status(201).json(result);
   } catch (e: any) {
     return sendApiError(res, 500, ApiErrorCode.INTERNAL_ERROR, e.message ?? "Failed to upsert markdown");
@@ -302,6 +343,8 @@ api.post("/agent/form", async (req, res) => {
   try {
     const result = await upsertForm((req as any).user.id, parsed.data);
     broadcastToUser((req as any).user.id, { type: "items:changed" });
+    const item = await getItem((req as any).user.id, result.itemId);
+    if (item) queueItemPush((req as any).user.id, item, result.action);
     return res.status(201).json(result);
   } catch (e: any) {
     return sendApiError(res, 500, ApiErrorCode.INTERNAL_ERROR, e.message ?? "Failed to upsert form");
@@ -360,6 +403,7 @@ api.post("/v1/items", async (req, res) => {
   try {
     const item = await createItem((req as any).user.id, parsed.data);
     broadcastToUser((req as any).user.id, { type: "items:changed" });
+    queueItemPush((req as any).user.id, item, "created");
     return res.status(201).json(item);
   } catch (e: any) {
     if (e.message === "NOT_FOUND") return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found");
@@ -393,6 +437,7 @@ api.patch("/v1/items/:id", async (req, res) => {
     const item = await patchItem((req as any).user.id, idParsed.data, parsed.data);
     if (!item) return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found");
     broadcastToUser((req as any).user.id, { type: "items:changed" });
+    queueItemPush((req as any).user.id, item, "updated");
     return res.json(item);
   } catch (e: any) {
     if (e.message === "NOT_FOUND") return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found");
@@ -437,9 +482,11 @@ api.post("/v1/items/batch", async (req, res) => {
         const assignedToError = applyAssignedTo(req, op.payload, rawPayload);
         if (assignedToError) return { ok: false as const, error: assignedToError };
         const item = await createItem(userId, op.payload);
+        queueItemPush(userId, item, "created");
         return { ok: true as const, item };
       }
       const item = await patchItem(userId, op.id, op.payload);
+      if (item) queueItemPush(userId, item, "updated");
       return item ? { ok: true as const, item } : { ok: false as const, error: "Not found" };
     })
   );
@@ -456,6 +503,8 @@ api.post("/v1/items/:id/notes", async (req, res) => {
   try {
     const note = await addNote((req as any).user.id, idParsed.data, parsed.data);
     broadcastToUser((req as any).user.id, { type: "items:changed" });
+    const item = await getItem((req as any).user.id, idParsed.data);
+    if (parsed.data.author === "AI" && item) queueItemPush((req as any).user.id, item, "note");
     return res.status(201).json(note);
   } catch { return sendApiError(res, 404, ApiErrorCode.NOT_FOUND, "Not found"); }
 });
