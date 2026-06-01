@@ -35,7 +35,9 @@ import {
   updateUser
 } from "../services/authService";
 import { consumeRateLimit } from "../services/rateLimit";
-import { getUserByKey, createKey, listKeys, deleteKey } from "../services/apiKeyService";
+import { createKey, listKeys, deleteKey } from "../services/apiKeyService";
+import { resolveAuth } from "../middleware/auth";
+import { queueItemPush } from "../services/itemPush";
 import {
   deviceStart,
   deviceConfirm,
@@ -53,8 +55,7 @@ import {
 import { addNote, createItem, dropItem, getItem, listItems, listNotes, markDone, patchItem, updateNote } from "../services/itemService";
 import { createProject, listProjects } from "../services/projectService";
 import { broadcastToUser } from "../services/boardBroadcast";
-import type { Item } from "../domain/types";
-import { getPushPublicKey, hasPushSupportConfigured, removePushSubscription, savePushSubscription, sendItemPushNotification } from "../services/pushService";
+import { getPushPublicKey, hasPushSupportConfigured, removePushSubscription, savePushSubscription } from "../services/pushService";
 import { sendApiError, ApiErrorCode } from "../services/apiError";
 import {
   canSendMagicLinkEmail,
@@ -196,21 +197,10 @@ api.post("/openclaw/device/confirm", async (req, res) => {
 });
 
 api.use(async (req, res, next) => {
-  const token =
-    (typeof req.headers.authorization === "string" && req.headers.authorization.replace(/^Bearer\s+/i, "").trim()) ||
-    (typeof req.headers["x-api-key"] === "string" ? req.headers["x-api-key"].trim() : undefined);
-  if (token) {
-    const user = await getUserByKey(token);
-    if (user) {
-      (req as any).user = user;
-      (req as any).authVia = "apikey";
-      return next();
-    }
-  }
-  const user = await getUserFromSession(req.cookies?.session);
-  if (!user) return sendApiError(res, 401, ApiErrorCode.UNAUTHORIZED, "Unauthorized");
-  (req as any).user = user;
-  (req as any).authVia = "session";
+  const auth = await resolveAuth(req);
+  if (!auth) return sendApiError(res, 401, ApiErrorCode.UNAUTHORIZED, "Unauthorized");
+  (req as any).user = auth.user;
+  (req as any).authVia = auth.authVia;
   next();
 });
 
@@ -226,13 +216,6 @@ function applyAssignedTo(req: any, payload: Record<string, unknown>, rawPayload:
   if (req.authVia === "apikey") return "assignedTo is required for AI-authenticated item creation";
   payload.assignedTo = "AI";
   return null;
-}
-
-function queueItemPush(userId: string, item: Item, kind: "created" | "updated" | "note"): void {
-  if (!item.hasAIChanges) return;
-  void sendItemPushNotification(userId, item, kind).catch((error) => {
-    console.error("[push] failed to send notification", error);
-  });
 }
 
 api.get("/me", (req, res) => res.json({ user: (req as any).user }));

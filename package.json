@@ -25,6 +25,9 @@
   "license": "MIT",
   "type": "commonjs",
   "dependencies": {
+    "@cfworker/json-schema": "^4.1.1",
+    "@modelcontextprotocol/node": "^2.0.0-alpha.2",
+    "@modelcontextprotocol/server": "^2.0.0-alpha.2",
     "@prisma/client": "^6.9.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",

@@ -5,6 +5,7 @@ import cors from "cors";
 import path from "node:path";
 import fs from "node:fs";
 import { api } from "./routes/api";
+import { mountMcp } from "./mcp/transport";
 
 const frontendDist = path.join(process.cwd(), "frontend", "dist");
 const hasBuiltFrontend = () => fs.existsSync(path.join(frontendDist, "index.html"));
@@ -22,6 +23,7 @@ export function createApp() {
   app.use(express.json({ limit: "1mb" }));
   app.use(cookieParser());
   app.use("/api", api);
+  mountMcp(app);
   if (hasBuiltFrontend()) {
     app.use(express.static(frontendDist));
     app.use((_req, res) => res.sendFile(path.join(frontendDist, "index.html")));
