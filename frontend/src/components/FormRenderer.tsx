@@ -92,16 +92,16 @@ function FieldRender({
       <div className="space-y-1.5">
         <Label>{field.label}</Label>
         {field.description && <p className="text-xs text-muted-foreground">{field.description}</p>}
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-touch">
           {field.options.map((opt) => (
-            <label key={opt} className="flex items-center gap-2 cursor-pointer">
+            <label key={opt} className="pressable flex min-h-12 items-center gap-3 cursor-pointer rounded-md px-1 -mx-1">
               <input
                 type="radio"
                 name={name}
                 value={opt}
                 checked={(value as string) === opt}
                 onChange={() => onChange(opt)}
-                className="rounded-full border-input"
+                className="size-4 shrink-0 rounded-full border-input accent-primary"
               />
               <span className="text-sm">{opt}</span>
             </label>
@@ -118,9 +118,9 @@ function FieldRender({
       <div className="space-y-1.5">
         <Label>{field.label}</Label>
         {field.description && <p className="text-xs text-muted-foreground">{field.description}</p>}
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-touch">
           {field.options.map((opt) => (
-            <label key={opt} className="flex items-center gap-2 cursor-pointer">
+            <label key={opt} className="pressable flex min-h-12 items-center gap-3 cursor-pointer rounded-md px-1 -mx-1">
               <Checkbox
                 checked={arr.includes(opt)}
                 onCheckedChange={(checked) => {
@@ -171,16 +171,16 @@ function FieldRender({
       <div className="space-y-1.5">
         <Label>{field.label}</Label>
         {field.description && <p className="text-xs text-muted-foreground">{field.description}</p>}
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-touch">
           {options.map((opt) => (
-            <label key={opt} className="flex items-center gap-1.5 cursor-pointer">
+            <label key={opt} className="pressable flex min-h-12 min-w-12 items-center justify-center gap-1.5 cursor-pointer rounded-md border border-border px-3">
               <input
                 type="radio"
                 name={name}
                 value={opt}
                 checked={String(value) === opt}
                 onChange={() => onChange(opt)}
-                className="rounded-full border-input"
+                className="size-4 shrink-0 rounded-full border-input accent-primary"
               />
               <span className="text-sm">{opt}</span>
             </label>

@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BookOpenIcon, ClipboardListIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { haptic } from "@/lib/haptics";
 
 interface BoardCardProps {
   item: Item;
@@ -40,17 +41,30 @@ export function BoardCard({ item, viewMode = "urgency", onClick, onDragStart, on
   return (
     <div
       data-board-card
+      role="button"
+      tabIndex={0}
       draggable
-      onClick={onClick}
+      onClick={() => {
+        onClick?.();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick?.();
+        }
+      }}
       onDragStart={(e) => {
         e.stopPropagation();
+        haptic("light");
         onDragStart?.(item);
       }}
       onDragEnd={() => onDragEnd?.()}
       className={cn(
-        "group relative bg-card border border-border rounded-lg p-3.5 cursor-pointer transition-all hover:border-foreground/20 hover:shadow-sm",
+        "pressable group relative bg-card border border-border rounded-lg p-3.5 cursor-pointer",
+        "hover:border-foreground/20 hover:shadow-sm active:shadow-none",
+        "animate-micro-in",
         item.hasAIChanges && "border-l-2 border-l-foreground/40",
-        isDragging && "opacity-50 cursor-grabbing",
+        isDragging && "opacity-50 cursor-grabbing !scale-100",
         !isDragging && "cursor-grab active:cursor-grabbing"
       )}
     >
@@ -110,7 +124,7 @@ export function BoardCard({ item, viewMode = "urgency", onClick, onDragStart, on
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-1.5 text-[11px] text-muted-foreground hover:text-foreground"
+            className="text-[11px] text-muted-foreground hover:text-foreground px-2"
             onClick={(e) => {
               e.stopPropagation();
               onAction(item.contentType!, item);

@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/dialog";
 import { useMinuteTick } from "@/hooks/useMinuteTick";
 import { useBoardSocket } from "@/hooks/useBoardSocket";
+import { haptic } from "@/lib/haptics";
 import {
   AGENT_SKILL_INSTALL_COMMAND,
   agentDocsUrl,
@@ -297,6 +298,7 @@ export function BoardPage() {
     } else {
       await updateItem(item.id, { tag: targetColumn as ItemTag });
     }
+    haptic("medium");
     setDraggedItem(null);
     fetchItems();
   };
@@ -377,16 +379,17 @@ export function BoardPage() {
       <div className="border-b border-border bg-background sticky top-0 z-30">
         <div className="px-4 md:px-6 py-3 md:py-4">
           <div className="flex items-center justify-between mb-3 md:mb-4">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-touch">
               <Link to="/" className="text-xl md:text-2xl font-semibold tracking-tight text-foreground hover:text-foreground/90">
                 Clawkpit
               </Link>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                className="text-muted-foreground hover:text-foreground"
                 onClick={() => setIsSettingsOpen(true)}
                 title="Settings"
+                aria-label="Settings"
               >
                 <SettingsIcon className="w-4 h-4" />
               </Button>
@@ -394,8 +397,11 @@ export function BoardPage() {
             <Button
               type="button"
               variant="default"
-              className="inline-flex size-8 shrink-0 items-center justify-center gap-0 p-0 text-xs font-medium leading-none md:h-9 md:w-auto md:gap-2 md:px-3"
+              size="icon"
+              className="md:h-12 md:w-auto md:min-w-0 md:px-4 md:gap-2"
               onClick={handleNewItem}
+              haptic="success"
+              aria-label="New Item"
             >
               <span className="inline-grid size-4 shrink-0 place-items-center" aria-hidden>
                 <PlusIcon className="size-3.5" strokeWidth={2.25} />
@@ -404,12 +410,12 @@ export function BoardPage() {
             </Button>
           </div>
           <div className="flex items-center gap-4 md:gap-6 mb-3 md:mb-4">
-            <div className="flex gap-2">
+            <div className="flex gap-touch">
               <Button
                 variant={viewMode === "urgency" ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setViewMode("urgency")}
-                className="h-8 text-xs font-medium"
+                className="text-xs font-medium"
               >
                 Urgency
               </Button>
@@ -417,16 +423,16 @@ export function BoardPage() {
                 variant={viewMode === "tag" ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setViewMode("tag")}
-                className="h-8 text-xs font-medium"
+                className="text-xs font-medium"
               >
                 Activity
               </Button>
-              <Link to="/board/archive">
-                <Button variant="ghost" size="sm" className="h-8 text-xs font-medium">
+              <Button asChild variant="ghost" size="sm" className="text-xs font-medium">
+                <Link to="/board/archive">
                   <ArchiveIcon className="w-3.5 h-3.5 mr-1.5" />
                   Archive
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             </div>
           </div>
           <BoardFilters filters={filters} projects={projects} onFiltersChange={setFilters} />
@@ -435,7 +441,10 @@ export function BoardPage() {
 
       <div className="px-4 md:px-6 py-4 md:py-6">
         {loading ? (
-          <div className="flex items-center justify-center py-16 text-muted-foreground">Loading…</div>
+          <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
+            <span className="inline-block size-4 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" aria-hidden />
+            Loading…
+          </div>
         ) : filteredItems.length === 0 ? (
           <EmptyState
             title="No items"
@@ -516,8 +525,8 @@ export function BoardPage() {
                 type="button"
                 onClick={() => handleCopyOpenclawModalCommand(AGENT_INSTALL_COMMAND, 1)}
                 className={cn(
-                  "w-full flex items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-left min-w-0",
-                  "hover:bg-muted/50 transition-colors"
+                  "pressable w-full flex items-center gap-2 rounded-md border border-border bg-muted/30 px-3 min-h-12 py-2 text-left min-w-0",
+                  "hover:bg-muted/50"
                 )}
               >
                 <code className="text-xs font-mono text-foreground truncate min-w-0 flex-1">
@@ -540,8 +549,8 @@ export function BoardPage() {
                 type="button"
                 onClick={() => handleCopyOpenclawModalCommand(`/clawkpit connect ${user?.email ?? ""}`.trim(), 2)}
                 className={cn(
-                  "w-full flex items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-left min-w-0",
-                  "hover:bg-muted/50 transition-colors"
+                  "pressable w-full flex items-center gap-2 rounded-md border border-border bg-muted/30 px-3 min-h-12 py-2 text-left min-w-0",
+                  "hover:bg-muted/50"
                 )}
               >
                 <code className="text-xs font-mono text-foreground truncate min-w-0 flex-1">/clawkpit connect {user?.email ?? ""}</code>
@@ -572,8 +581,14 @@ export function BoardPage() {
             <Button variant="ghost" size="sm" onClick={handleOpenclawModalDismiss}>
               Maybe later
             </Button>
-            <Button size="sm" onClick={handleOpenclawModalConnect} disabled={openclawModalLoading || !openclawModalCode.trim()}>
-              {openclawModalLoading ? "Connecting…" : "Connect"}
+            <Button
+              size="sm"
+              onClick={handleOpenclawModalConnect}
+              loading={openclawModalLoading}
+              disabled={!openclawModalCode.trim()}
+              haptic="success"
+            >
+              Connect
             </Button>
           </DialogFooter>
         </DialogContent>

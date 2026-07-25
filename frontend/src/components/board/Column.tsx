@@ -77,7 +77,7 @@ export function BoardColumn({
             type="button"
             onClick={onHeaderClick}
             className={cn(
-              "w-full flex-1 min-h-[200px] flex items-center justify-center py-4 rounded-lg border border-border bg-card hover:bg-accent/50 transition-colors cursor-pointer",
+              "pressable w-full flex-1 min-h-[200px] flex items-center justify-center py-4 rounded-lg border border-border bg-card hover:bg-accent/50 cursor-pointer",
               isDragOver && "bg-accent/50 ring-2 ring-primary/20"
             )}
             title={headerLabel}
@@ -93,7 +93,7 @@ export function BoardColumn({
           <button
             type="button"
             onClick={onHeaderClick}
-            className="w-full flex items-baseline justify-between mb-3 px-1 text-left hover:opacity-80 transition-opacity cursor-pointer"
+            className="pressable w-full min-h-12 flex items-center justify-between mb-3 px-1 text-left hover:opacity-80 cursor-pointer"
           >
             <h2 className="text-sm font-semibold text-foreground">{title}</h2>
             <span className="text-xs text-muted-foreground">{items.length}</span>
@@ -105,7 +105,7 @@ export function BoardColumn({
       {!collapsed && (
         <div
           className={cn(
-            "flex-1 space-y-2.5 min-h-[200px] rounded-lg transition-colors",
+            "flex-1 space-y-touch min-h-[200px] rounded-lg transition-colors duration-micro",
             isDragOver && "bg-accent/50 ring-2 ring-primary/20"
           )}
         >
@@ -130,7 +130,7 @@ export function BoardColumn({
             <button
               type="button"
               onClick={onAddItem}
-              className="mt-1 w-full py-1.5 text-xs font-medium text-muted-foreground rounded-md border border-dashed border-border/70 hover:text-foreground hover:bg-accent/40 hover:border-border transition-colors"
+              className="pressable mt-1 w-full min-h-12 py-3 text-xs font-medium text-muted-foreground rounded-md border border-dashed border-border/70 hover:text-foreground hover:bg-accent/40 hover:border-border"
             >
               + Add item
             </button>

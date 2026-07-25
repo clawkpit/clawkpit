@@ -4,6 +4,7 @@ import { getItemsByColumn, getItemsByTag, COLUMNS_URGENCY, COLUMNS_TAG } from "@
 import { BoardColumn } from "./Column";
 import { Button } from "@/components/ui/button";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import { haptic } from "@/lib/haptics";
 
 type ViewMode = "urgency" | "tag";
 
@@ -69,11 +70,17 @@ export function Board({
   const canGoNext = currentColumnIndex < columns.length - 1;
 
   const handlePrev = () => {
-    if (canGoPrev) setCurrentColumnIndex((i) => i - 1);
+    if (canGoPrev) {
+      haptic("light");
+      setCurrentColumnIndex((i) => i - 1);
+    }
   };
 
   const handleNext = () => {
-    if (canGoNext) setCurrentColumnIndex((i) => i + 1);
+    if (canGoNext) {
+      haptic("light");
+      setCurrentColumnIndex((i) => i + 1);
+    }
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -155,8 +162,8 @@ export function Board({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        <div className="flex items-center justify-between mb-4 gap-3">
-          <Button variant="outline" size="sm" onClick={handlePrev} disabled={!canGoPrev} className="h-9 px-3">
+        <div className="flex items-center justify-between mb-4 gap-touch">
+          <Button variant="outline" size="icon" onClick={handlePrev} disabled={!canGoPrev} aria-label="Previous column">
             <ChevronLeftIcon className="w-4 h-4" />
           </Button>
           <div className="flex-1 text-center">
@@ -165,7 +172,7 @@ export function Board({
               {currentColumnIndex + 1} of {columns.length}
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={handleNext} disabled={!canGoNext} className="h-9 px-3">
+          <Button variant="outline" size="icon" onClick={handleNext} disabled={!canGoNext} aria-label="Next column">
             <ChevronRightIcon className="w-4 h-4" />
           </Button>
         </div>

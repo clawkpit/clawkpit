@@ -146,7 +146,7 @@ export function SettingsPanel({ isOpen, onClose, onConnectOpenclawClick }: Setti
         <div className="h-full flex flex-col">
           <div className="flex items-center justify-between px-6 py-4 border-b border-border">
             <h2 className="text-sm font-semibold text-muted-foreground">Settings</h2>
-            <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0">
+            <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close settings">
               <XIcon className="w-4 h-4" />
             </Button>
           </div>
@@ -178,7 +178,7 @@ export function SettingsPanel({ isOpen, onClose, onConnectOpenclawClick }: Setti
               <p className="text-xs text-muted-foreground">
                 API keys let your agent and other tools access your Clawkpit items. These keys grant access to your data only.
               </p>
-              <div className="flex gap-2 items-end">
+              <div className="flex gap-touch items-end">
                 <div className="flex-1 space-y-1">
                   <Label htmlFor="new-key-label" className="text-xs text-muted-foreground">
                     Label (optional)
@@ -191,31 +191,36 @@ export function SettingsPanel({ isOpen, onClose, onConnectOpenclawClick }: Setti
                     className="text-sm"
                   />
                 </div>
-                <Button size="sm" onClick={handleCreateKey} disabled={createKeyLoading}>
+                <Button size="sm" onClick={handleCreateKey} loading={createKeyLoading} haptic="success">
                   <PlusIcon className="w-3.5 h-3.5 mr-2" />
                   Create API key
                 </Button>
               </div>
               {keysLoading ? (
-                <p className="text-xs text-muted-foreground">Loading…</p>
+                <p className="text-xs text-muted-foreground flex items-center gap-2">
+                  <span className="inline-block size-3.5 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" aria-hidden />
+                  Loading…
+                </p>
               ) : (keys ?? []).length === 0 ? (
                 <p className="text-xs text-muted-foreground">No API keys yet.</p>
               ) : (
-                <ul className="space-y-2">
+                <ul className="space-y-touch">
                   {(keys ?? []).map((k) => (
                     <li
                       key={k.id}
-                      className="flex items-center justify-between gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm"
+                      className="flex items-center justify-between gap-touch rounded-md border border-border bg-muted/30 px-3 py-2 text-sm animate-micro-in"
                     >
                       <span className="truncate text-muted-foreground">
                         {k.name || "Unnamed key"} · {new Date(k.createdAt).toLocaleDateString()}
                       </span>
                       <Button
                         variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                        size="icon"
+                        className="text-muted-foreground hover:text-destructive shrink-0"
                         onClick={() => handleDeleteKey(k.id)}
                         title="Revoke key"
+                        aria-label="Revoke key"
+                        haptic="warning"
                       >
                         <Trash2Icon className="w-3.5 h-3.5" />
                       </Button>
@@ -242,20 +247,23 @@ export function SettingsPanel({ isOpen, onClose, onConnectOpenclawClick }: Setti
                           ? "Ready to enable"
                           : "Disabled"}
                 </span>
-                <div className="flex gap-2">
+                <div className="flex gap-touch">
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => void push.enable()}
-                    disabled={!push.supported || push.loading || push.subscribed || push.permission === "denied"}
+                    loading={push.loading && !push.subscribed}
+                    disabled={!push.supported || push.subscribed || push.permission === "denied"}
+                    haptic="success"
                   >
-                    {push.subscribed ? "Enabled" : push.loading ? "Working…" : "Enable notifications"}
+                    {push.subscribed ? "Enabled" : "Enable notifications"}
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => void push.disable()}
-                    disabled={!push.supported || push.loading || !push.subscribed}
+                    loading={push.loading && push.subscribed}
+                    disabled={!push.supported || !push.subscribed}
                   >
                     Disable
                   </Button>
@@ -294,10 +302,10 @@ export function SettingsPanel({ isOpen, onClose, onConnectOpenclawClick }: Setti
                 size="sm"
                 className="w-full text-muted-foreground hover:text-destructive hover:border-destructive/50"
                 onClick={handleLogout}
-                disabled={logoutLoading}
+                loading={logoutLoading}
               >
                 <LogOut className="w-3.5 h-3.5 mr-2" />
-                {logoutLoading ? "Signing out…" : "Sign out"}
+                Sign out
               </Button>
             </section>
           </div>

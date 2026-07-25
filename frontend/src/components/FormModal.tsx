@@ -110,7 +110,12 @@ export function FormModal({
           <DialogTitle>{title ?? "Form"}</DialogTitle>
         </DialogHeader>
         <div className="flex-1 overflow-y-auto min-h-0 -mx-1 px-1">
-          {loading && <p className="text-sm text-muted-foreground">Loading…</p>}
+          {loading && (
+            <p className="text-sm text-muted-foreground flex items-center gap-2">
+              <span className="inline-block size-3.5 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" aria-hidden />
+              Loading…
+            </p>
+          )}
           {fetchError && <p className="text-sm text-destructive">{fetchError}</p>}
           {!loading && !fetchError && schema && (
             <>
@@ -122,9 +127,9 @@ export function FormModal({
           )}
         </div>
         <DialogFooter>
-          <Button onClick={handleSubmit} disabled={submitting || !schema}>
+          <Button onClick={handleSubmit} loading={submitting} disabled={!schema} haptic="success">
             <CheckIcon className="w-4 h-4 mr-2" />
-            {submitting ? "Submitting…" : "Submit"}
+            Submit
           </Button>
         </DialogFooter>
       </DialogContent>

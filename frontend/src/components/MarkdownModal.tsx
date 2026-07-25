@@ -77,7 +77,12 @@ export function MarkdownModal({
           <DialogTitle>{title ?? "Read"}</DialogTitle>
         </DialogHeader>
         <div className="flex-1 overflow-y-auto min-h-0 -mx-1 px-1">
-          {loading && <p className="text-sm text-muted-foreground">Loading…</p>}
+          {loading && (
+            <p className="text-sm text-muted-foreground flex items-center gap-2">
+              <span className="inline-block size-3.5 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" aria-hidden />
+              Loading…
+            </p>
+          )}
           {error && <p className="text-sm text-destructive">{error}</p>}
           {!loading && !error && html && (
             <div
@@ -87,9 +92,9 @@ export function MarkdownModal({
           )}
         </div>
         <DialogFooter>
-          <Button onClick={handleMarkRead} disabled={marking}>
+          <Button onClick={handleMarkRead} loading={marking} haptic="success">
             <CheckIcon className="w-4 h-4 mr-2" />
-            {marking ? "Marking…" : "Mark Read"}
+            Mark Read
           </Button>
         </DialogFooter>
       </DialogContent>

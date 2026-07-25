@@ -219,7 +219,7 @@ export function DetailPanel({
                 </>
               )}
             </h2>
-            <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0">
+            <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close details">
               <XIcon className="w-4 h-4" />
             </Button>
           </div>
@@ -338,7 +338,7 @@ export function DetailPanel({
               </div>
               <div className="space-y-2 col-span-2">
                 <label className="text-xs font-medium text-muted-foreground">Project</label>
-                <div className="flex gap-2">
+                <div className="flex gap-touch">
                   <Select value={localProjectId} onValueChange={handleProjectChange}>
                     <SelectTrigger className="text-sm flex-1"><SelectValue placeholder="No project" /></SelectTrigger>
                     <SelectContent>
@@ -355,6 +355,7 @@ export function DetailPanel({
                     className="shrink-0"
                     onClick={() => setShowCreateProject(true)}
                     title="Create project"
+                    aria-label="Create project"
                   >
                     <PlusIcon className="w-4 h-4" />
                   </Button>
@@ -364,7 +365,7 @@ export function DetailPanel({
 
             {isCreate ? (
               <div className="pt-4 border-t border-border">
-                <Button type="button" onClick={handleCreate} className="w-full">
+                <Button type="button" onClick={handleCreate} className="w-full" haptic="success">
                   <CheckIcon className="w-4 h-4 mr-2" />
                   Create Item
                 </Button>
@@ -391,7 +392,7 @@ export function DetailPanel({
                       )}
                     </Button>
                   )}
-                  <div className="flex gap-3">
+                  <div className="flex gap-touch">
                     {item.status === "Done" ? (
                       <Button onClick={handleUndoDone} className="flex-1" variant="default">
                         <RotateCcwIcon className="w-4 h-4 mr-2" />
@@ -404,11 +405,11 @@ export function DetailPanel({
                       </Button>
                     ) : (
                       <>
-                        <Button onClick={handleMarkDone} className="flex-1" variant="default">
+                        <Button onClick={handleMarkDone} className="flex-1" variant="default" haptic="success">
                           <CheckIcon className="w-4 h-4 mr-2" />
                           Mark Done
                         </Button>
-                        <Button onClick={handleDrop} variant="outline" className="flex-1">
+                        <Button onClick={handleDrop} variant="outline" className="flex-1" haptic="warning">
                           <ArchiveXIcon className="w-4 h-4 mr-2" />
                           Drop
                         </Button>
@@ -445,8 +446,8 @@ export function DetailPanel({
             <Button variant="ghost" onClick={() => setShowCreateProject(false)} disabled={creatingProject}>
               Cancel
             </Button>
-            <Button onClick={handleCreateProject} disabled={creatingProject || !newProjectName.trim()}>
-              {creatingProject ? "Creating…" : "Create"}
+            <Button onClick={handleCreateProject} loading={creatingProject} disabled={!newProjectName.trim()} haptic="success">
+              Create
             </Button>
           </DialogFooter>
         </DialogContent>
