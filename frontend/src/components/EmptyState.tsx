@@ -28,6 +28,7 @@ export function EmptyState({
           className="mb-4 size-12 rounded-full"
           aria-label={actionLabel}
           title={actionLabel}
+          haptic="success"
         >
           <PlusIcon className="size-5" strokeWidth={2.25} />
         </Button>

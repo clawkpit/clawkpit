@@ -144,8 +144,8 @@ export function SignupPage() {
                       className="font-mono text-sm"
                       disabled={pasteLoading}
                     />
-                    <Button type="submit" size="sm" disabled={pasteLoading || !pasteToken.trim()}>
-                      {pasteLoading ? "Signing in…" : "Sign in with code"}
+                    <Button type="submit" size="sm" loading={pasteLoading} disabled={!pasteToken.trim()} haptic="success">
+                      Sign in with code
                     </Button>
                   </form>
                 </div>
@@ -177,7 +177,7 @@ export function SignupPage() {
                 />
               </div>
 
-              <div className="flex items-start gap-3">
+              <div className="flex items-center gap-touch min-h-12">
                 <Checkbox
                   id="terms"
                   checked={agreedToTerms}
@@ -188,7 +188,7 @@ export function SignupPage() {
                 />
                 <label
                   htmlFor="terms"
-                  className="text-sm text-muted-foreground leading-relaxed cursor-pointer"
+                  className="text-sm text-muted-foreground leading-relaxed cursor-pointer py-2"
                 >
                   I agree to the{" "}
                   <a href="#" className="text-primary hover:underline">
@@ -214,9 +214,10 @@ export function SignupPage() {
                 type="submit"
                 className="w-full"
                 size="lg"
-                disabled={sendLoading}
+                loading={sendLoading}
+                haptic="success"
               >
-                {sendLoading ? "Sending…" : "Create Account"}
+                Create Account
               </Button>
 
               <div className="text-center text-xs text-muted-foreground">

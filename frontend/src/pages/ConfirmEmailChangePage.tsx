@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth, confirmEmailChange } from "@/api/client";
+import { Spinner } from "@/components/ui/spinner";
 
 export function ConfirmEmailChangePage() {
   const navigate = useNavigate();
@@ -30,8 +31,9 @@ export function ConfirmEmailChangePage() {
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-6">
-        <p className="text-muted-foreground">Confirming your new email…</p>
+      <div className="min-h-screen bg-background flex items-center justify-center gap-2 p-6 text-muted-foreground">
+        <Spinner className="text-base" />
+        Confirming your new email…
       </div>
     );
   }
@@ -42,7 +44,10 @@ export function ConfirmEmailChangePage() {
         <div className="text-center space-y-4">
           <h1 className="text-lg font-semibold">Could not confirm email</h1>
           <p className="text-sm text-muted-foreground">{errorMessage}</p>
-          <a href="/board" className="text-sm text-primary hover:underline">
+          <a
+            href="/board"
+            className="pressable inline-flex min-h-12 items-center text-sm text-primary hover:underline"
+          >
             Go to Clawkpit
           </a>
         </div>

@@ -170,8 +170,8 @@ export function ArchivePage() {
             </div>
           </div>
           <div className="flex items-center gap-4 md:gap-6 mb-3 md:mb-4">
-            <div className="flex gap-2">
-              <Button asChild variant="default" size="sm" className="h-8 text-xs font-medium">
+            <div className="flex gap-touch">
+              <Button asChild variant="default" size="sm" className="text-xs font-medium">
                 <Link to="/board">
                   <ArrowLeftIcon className="w-3.5 h-3.5" />
                   Back to Active Items
@@ -182,7 +182,7 @@ export function ArchivePage() {
               {filteredItems.length} of {items.length} items
             </p>
           </div>
-          <div className="flex flex-col md:flex-row gap-3">
+          <div className="flex flex-col md:flex-row gap-touch">
             <div className="relative flex-1">
               <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
@@ -190,15 +190,14 @@ export function ArchivePage() {
                 placeholder="Search by title, description, tag..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 h-9"
+                className="pl-9"
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-touch">
               <Button
                 variant={statusFilter === "All" ? "default" : "outline"}
                 size="sm"
                 onClick={() => setStatusFilter("All")}
-                className="h-9"
               >
                 <FilterIcon className="w-3.5 h-3.5 mr-1.5" />
                 All
@@ -207,7 +206,6 @@ export function ArchivePage() {
                 variant={statusFilter === "Done" ? "default" : "outline"}
                 size="sm"
                 onClick={() => setStatusFilter("Done")}
-                className="h-9"
               >
                 <CheckCircle2Icon className="w-3.5 h-3.5 mr-1.5" />
                 Done
@@ -216,7 +214,6 @@ export function ArchivePage() {
                 variant={statusFilter === "Dropped" ? "default" : "outline"}
                 size="sm"
                 onClick={() => setStatusFilter("Dropped")}
-                className="h-9"
               >
                 <XCircleIcon className="w-3.5 h-3.5 mr-1.5" />
                 Dropped
@@ -228,7 +225,10 @@ export function ArchivePage() {
 
       <div className="px-4 md:px-6 py-6">
         {loading ? (
-          <div className="flex items-center justify-center py-16 text-muted-foreground">Loading…</div>
+          <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
+            <span className="inline-block size-4 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" aria-hidden />
+            Loading…
+          </div>
         ) : filteredItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">

@@ -41,10 +41,10 @@ export function NotesSection({ notes, onAddNote, onEditNote }: NotesSectionProps
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-touch">
         <h3 className="text-sm font-semibold text-foreground">Notes</h3>
         {!isAdding && (
-          <Button variant="ghost" size="sm" onClick={() => setIsAdding(true)} className="h-7 text-xs">
+          <Button variant="ghost" size="sm" onClick={() => setIsAdding(true)}>
             <PlusIcon className="w-3.5 h-3.5 mr-1.5" />
             Add Note
           </Button>
@@ -52,7 +52,7 @@ export function NotesSection({ notes, onAddNote, onEditNote }: NotesSectionProps
       </div>
 
       {isAdding && (
-        <div className="space-y-2 p-3 rounded-lg border border-border bg-muted/30">
+        <div className="space-y-2 p-3 rounded-lg border border-border bg-muted/30 animate-micro-in">
           <Textarea
             value={newNoteContent}
             onChange={(e) => setNewNoteContent(e.target.value)}
@@ -60,11 +60,11 @@ export function NotesSection({ notes, onAddNote, onEditNote }: NotesSectionProps
             className="min-h-[80px] text-sm resize-none bg-background"
             autoFocus
           />
-          <div className="flex gap-2 justify-end">
-            <Button variant="ghost" size="sm" onClick={() => { setIsAdding(false); setNewNoteContent(""); }} className="h-7 text-xs">
+          <div className="flex gap-touch justify-end">
+            <Button variant="ghost" size="sm" onClick={() => { setIsAdding(false); setNewNoteContent(""); }}>
               Cancel
             </Button>
-            <Button size="sm" onClick={handleAddNote} disabled={!newNoteContent.trim()} className="h-7 text-xs">
+            <Button size="sm" onClick={handleAddNote} disabled={!newNoteContent.trim()} haptic="success">
               Save Note
             </Button>
           </div>
@@ -79,7 +79,7 @@ export function NotesSection({ notes, onAddNote, onEditNote }: NotesSectionProps
           <div
             key={note.id}
             className={cn(
-              "p-3 rounded-lg border",
+              "p-3 rounded-lg border animate-micro-in",
               note.author === "AI" ? "bg-muted/30 border-border/50" : "bg-card border-border"
             )}
           >
@@ -103,11 +103,11 @@ export function NotesSection({ notes, onAddNote, onEditNote }: NotesSectionProps
                   className="min-h-[60px] text-sm resize-none"
                   autoFocus
                 />
-                <div className="flex gap-2 justify-end">
-                  <Button variant="ghost" size="sm" onClick={() => { setEditingNoteId(null); setEditContent(""); }} className="h-7 text-xs">
+                <div className="flex gap-touch justify-end">
+                  <Button variant="ghost" size="sm" onClick={() => { setEditingNoteId(null); setEditContent(""); }}>
                     Cancel
                   </Button>
-                  <Button size="sm" onClick={() => handleEditNote(note.id)} disabled={!editContent.trim()} className="h-7 text-xs">
+                  <Button size="sm" onClick={() => handleEditNote(note.id)} disabled={!editContent.trim()}>
                     Save
                   </Button>
                 </div>
@@ -116,13 +116,15 @@ export function NotesSection({ notes, onAddNote, onEditNote }: NotesSectionProps
               <>
                 <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap">{note.content}</p>
                 {note.author === "User" && (
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => startEditing(note)}
-                    className="text-xs text-muted-foreground hover:text-foreground mt-2 transition-colors"
+                    className="mt-1 -ml-3 text-muted-foreground hover:text-foreground"
                   >
                     Edit
-                  </button>
+                  </Button>
                 )}
               </>
             )}

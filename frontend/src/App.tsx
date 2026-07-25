@@ -6,10 +6,18 @@ import { ConfirmEmailChangePage } from "./pages/ConfirmEmailChangePage";
 import { BoardPage } from "./pages/BoardPage";
 import { ArchivePage } from "./pages/ArchivePage";
 import { useAuth } from "./api/client";
+import { Spinner } from "./components/ui/spinner";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-background">Loading...</div>;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center gap-2 bg-background text-muted-foreground">
+        <Spinner className="size-5" />
+        Loading…
+      </div>
+    );
+  }
   if (!user) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }

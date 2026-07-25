@@ -155,8 +155,8 @@ export function LoginPage() {
                       className="font-mono text-sm"
                       disabled={pasteLoading}
                     />
-                    <Button type="submit" size="sm" disabled={pasteLoading || !pasteToken.trim()}>
-                      {pasteLoading ? "Logging in…" : "Log in with code"}
+                    <Button type="submit" size="sm" loading={pasteLoading} disabled={!pasteToken.trim()} haptic="success">
+                      Log in with code
                     </Button>
                   </form>
                 </div>
@@ -196,9 +196,10 @@ export function LoginPage() {
                 type="submit"
                 className="w-full"
                 size="lg"
-                disabled={sendLoading}
+                loading={sendLoading}
+                haptic="success"
               >
-                {sendLoading ? "Sending…" : "Send Magic Link"}
+                Send Magic Link
               </Button>
 
               <div className="text-center text-xs text-muted-foreground">

@@ -40,6 +40,13 @@
   --border: 240 5.9% 90%;
   --input: 240 5.9% 90%;
   --ring: 240 5.9% 10%;
+  /* Mobile interaction tokens */
+  --touch-target: 3rem; /* 48px */
+  --touch-gap: 0.625rem; /* 10px — between 8–12px */
+  --press-scale: 0.97;
+  --duration-press: 100ms;
+  --duration-micro: 150ms;
+  --ease-press: cubic-bezier(0.2, 0, 0, 1);
 }
 
 .dark {
@@ -70,4 +77,86 @@ body {
   font-weight: 400;
   color: hsl(var(--foreground));
   background-color: hsl(var(--background));
+  /* Faster taps on mobile — removes 300ms delay on older WebViews */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@layer utilities {
+  /**
+   * Shared press feedback for any interactive control.
+   * Scale + opacity change on :active; ~100ms; immediate on touch.
+   */
+  .pressable {
+    transform: translateZ(0);
+    transition-property: transform, opacity, box-shadow, background-color, color, border-color;
+    transition-duration: var(--duration-press);
+    transition-timing-function: var(--ease-press);
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .pressable:active:not(:disabled):not([aria-disabled="true"]):not([data-disabled]) {
+    transform: scale(var(--press-scale));
+    opacity: 0.92;
+  }
+
+  /** Minimum 48×48 touch target without enlarging the visual icon/content. */
+  .touch-target {
+    position: relative;
+    min-height: var(--touch-target);
+    min-width: var(--touch-target);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /** Spacing between neighboring interactive controls (8–12px). */
+  .touch-gap {
+    gap: var(--touch-gap);
+  }
+
+  /** Lightweight enter/exit for list items and expanding panels. */
+  .animate-micro-in {
+    animation: micro-in var(--duration-micro) var(--ease-press) both;
+  }
+
+  .animate-micro-out {
+    animation: micro-out var(--duration-micro) var(--ease-press) both;
+  }
+}
+
+@keyframes micro-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes micro-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pressable,
+  .pressable:active:not(:disabled):not([aria-disabled="true"]):not([data-disabled]) {
+    transition: none;
+    transform: none;
+  }
+
+  .animate-micro-in,
+  .animate-micro-out {
+    animation: none;
+  }
 }
