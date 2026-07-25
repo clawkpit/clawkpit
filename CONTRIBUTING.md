@@ -58,6 +58,7 @@ Please ensure tests pass and the project builds before submitting a PR.
 | Frontend app and pages | `frontend/src/` |
 | API tests | `tests/api.test.ts` |
 | Agent skill docs | `skills/clawkpit/` |
+| Agent CLI | `cli/` (`clawkpit` binary; see `skills/clawkpit/cli.md`) |
 
 See also [docs/architecture.md](docs/architecture.md) for a higher-level overview.
 

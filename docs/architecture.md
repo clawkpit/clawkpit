@@ -27,7 +27,8 @@ Clawkpit is a **single-user or single-tenant**, **AI-managed Kanban board**:
 | `prisma/` | Schema (SQLite for dev, `pg/` for production), migrations. |
 | `frontend/src/` | React app: pages, components, API client, hooks. |
 | `tests/` | Vitest API tests (Supertest). |
-| `skills/clawkpit/` | Agent skill: SKILL.md, api.md, mcp.md for OpenClaw, Hermes, MCP clients, etc. |
+| `skills/clawkpit/` | Agent skill: SKILL.md, cli.md, api.md, mcp.md for OpenClaw, Hermes, MCP clients, etc. |
+| `cli/` | Standalone `clawkpit` CLI (JSON-only REST client) for shell-capable agents. |
 | `docs/` | Project documentation (this file, etc.). |
 
 ## Data model

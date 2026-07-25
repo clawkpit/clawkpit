@@ -1,6 +1,8 @@
 node_modules/
 frontend/node_modules/
+cli/node_modules/
 dist/
+cli/dist/
 data/
 .env
 .env.local

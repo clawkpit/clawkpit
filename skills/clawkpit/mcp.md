@@ -1,6 +1,6 @@
 # Clawkpit MCP reference
 
-**Recommended integration** for MCP-capable agents (Cursor, Claude Desktop, OpenClaw with MCP, Hermes, etc.). The REST API in [api.md](api.md) remains available for harness slash commands and as a fallback when MCP is unavailable.
+**Recommended when the CLI is unavailable** for MCP-capable agents (Cursor, Claude Desktop, OpenClaw with MCP, Hermes, etc.). Prefer the [CLI](cli.md) when the agent can run shell commands (fewer tokens). The REST API in [api.md](api.md) remains available for harness slash commands and as a fallback when neither CLI nor MCP is available.
 
 ## Endpoint and transport
 
