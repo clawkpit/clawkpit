@@ -66,9 +66,11 @@ Copy `.env.example` to `.env` and set values as needed.
 - For magic-link email in production, set `RESEND_API_KEY`, `APP_BASE_URL`, and optionally `MAGIC_LINK_FROM_EMAIL` (see [Resend](https://resend.com)). Without these, the request-link endpoint still responds but does not send email.
 - To get an email when someone creates a new account, set `RESEND_API_KEY` and one of `ADMIN_EMAIL`, `OPS_EMAIL`, or `MAINTAINER_EMAIL` (first set wins). Notification is sent when the account row is created (first magic-link request for that email), not when they complete sign-in.
 
-## MCP (agents)
+## Agents (CLI, MCP, REST)
 
-MCP-capable agents should use **Streamable HTTP** at `POST /mcp` (same host as the API) with `Authorization: Bearer <API_KEY>`. See [skills/clawkpit/mcp.md](skills/clawkpit/mcp.md) for tools, limits, and client examples. Local dev: `npm run dev` serves `/mcp` on port 3000.
+- **CLI (preferred for shell-capable agents):** `cli/` — JSON-only `clawkpit` binary mirroring all MCP tools. See [skills/clawkpit/cli.md](skills/clawkpit/cli.md) and [cli/README.md](cli/README.md). Build: `npm install --prefix cli && npm run build --prefix cli`.
+- **MCP:** Streamable HTTP at `POST /mcp` with `Authorization: Bearer <API_KEY>`. See [skills/clawkpit/mcp.md](skills/clawkpit/mcp.md). Local dev: `npm run dev` serves `/mcp` on port 3000.
+- **REST:** [skills/clawkpit/api.md](skills/clawkpit/api.md) for slash-command harnesses and fallback.
 
 ## API overview
 
